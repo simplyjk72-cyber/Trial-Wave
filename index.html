@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Trial Wave</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: black;
+    }
+    canvas {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let y = canvas.height / 2;
+let velocity = 0;
+let gravity = 0.6;
+let wavePower = -1.2;
+
+let trail = [];
+
+document.addEventListener("keydown", () => {
+  velocity = wavePower;
+});
+
+document.addEventListener("keyup", () => {
+  velocity = 1.2;
+});
+
+function update() {
+  ctx.fillStyle = "black";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  velocity += gravity * 0.1;
+  y += velocity * 5;
+
+  trail.push({x: 200, y: y});
+  if (trail.length > 50) trail.shift();
+
+  ctx.strokeStyle = "cyan";
+  ctx.beginPath();
+  for (let i = 0; i < trail.length; i++) {
+    ctx.lineTo(trail[i].x - i * 5, trail[i].y);
+  }
+  ctx.stroke();
+
+  requestAnimationFrame(update);
+}
+
+update();
+</script>
+</body>
+</html>
