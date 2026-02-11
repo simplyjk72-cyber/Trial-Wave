@@ -1,21 +1,14 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Trial Wave</title>
-  <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      background: black;
-    }
-    canvas {
-      display: block;
-    }
-  </style>
+<title>Trial Wave</title>
+<style>
+body { margin: 0; overflow: hidden; background: black; }
+canvas { display: block; }
+</style>
 </head>
 <body>
 <canvas id="game"></canvas>
-
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -23,40 +16,81 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-let y = canvas.height / 2;
-let velocity = 0;
-let gravity = 0.6;
-let wavePower = -1.2;
+let player = {
+  x: 150,
+  y: canvas.height / 2,
+  size: 10,
+  velocity: 0
+};
 
-let trail = [];
+let gravity = 0.5;
+let waveForce = -1.5;
+let speed = 6;
+let alive = true;
 
-document.addEventListener("keydown", () => {
-  velocity = wavePower;
-});
+let obstacles = [];
+for (let i = 0; i < 20; i++) {
+  obstacles.push({
+    x: 600 + i * 300,
+    y: Math.random() * canvas.height,
+    width: 20,
+    height: 150
+  });
+}
 
-document.addEventListener("keyup", () => {
-  velocity = 1.2;
-});
+let holding = false;
+
+document.addEventListener("keydown", () => holding = true);
+document.addEventListener("keyup", () => holding = false);
+
+function reset() {
+  player.y = canvas.height / 2;
+  player.velocity = 0;
+  alive = true;
+}
 
 function update() {
   ctx.fillStyle = "black";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  velocity += gravity * 0.1;
-  y += velocity * 5;
+  if (alive) {
+    player.velocity += gravity;
+    if (holding) player.velocity = waveForce;
 
-  trail.push({x: 200, y: y});
-  if (trail.length > 50) trail.shift();
-
-  ctx.strokeStyle = "cyan";
-  ctx.beginPath();
-  for (let i = 0; i < trail.length; i++) {
-    ctx.lineTo(trail[i].x - i * 5, trail[i].y);
+    player.y += player.velocity * 5;
   }
-  ctx.stroke();
+
+  ctx.fillStyle = "cyan";
+  ctx.fillRect(player.x, player.y, player.size, player.size);
+
+  obstacles.forEach(obs => {
+    obs.x -= speed;
+
+    ctx.fillStyle = "red";
+    ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+
+    if (
+      player.x < obs.x + obs.width &&
+      player.x + player.size > obs.x &&
+      player.y < obs.y + obs.height &&
+      player.y + player.size > obs.y
+    ) {
+      alive = false;
+    }
+  });
+
+  if (!alive) {
+    ctx.fillStyle = "white";
+    ctx.font = "40px Arial";
+    ctx.fillText("You Died - Press R", canvas.width/2 - 150, canvas.height/2);
+  }
 
   requestAnimationFrame(update);
 }
+
+document.addEventListener("keydown", e => {
+  if (e.key === "r") reset();
+});
 
 update();
 </script>
