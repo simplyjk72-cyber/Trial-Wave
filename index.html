@@ -58,8 +58,7 @@ document.addEventListener("keyup", e => {
 
 
 function reset() {
-  player.y = canvas.height / 2;
-  player.velocity = 0;
+  player.y = canvas.height / 2
   alive = true;
 }
 
@@ -67,11 +66,16 @@ function update() {
   ctx.fillStyle = "black";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+// Draw top and bottom borders
+ctx.fillStyle = "white";
+ctx.fillRect(0, 0, canvas.width, 5); // top bar
+ctx.fillRect(0, canvas.height - 5, canvas.width, 5); // bottom bar
+
 if (alive) {
   if (holding) {
-    player.y -= 5;
+    player.y -= 3;
   } else {
-    player.y += 5;
+    player.y += 3;
   }
 }
 
