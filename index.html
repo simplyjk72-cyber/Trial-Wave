@@ -67,12 +67,24 @@ function update() {
   ctx.fillStyle = "black";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  if (alive) {
-    player.velocity += gravity;
-    if (holding) player.velocity = waveForce;
-
-    player.y += player.velocity * 5;
+if (alive) {
+  if (holding) {
+    player.y -= 5;
+  } else {
+    player.y += 5;
   }
+}
+
+  // Top border
+if (player.y < 0) {
+  player.y = 0;
+}
+
+// Bottom border
+if (player.y + player.size > canvas.height) {
+  player.y = canvas.height - player.size;
+}
+
 
   ctx.fillStyle = "cyan";
   ctx.fillRect(player.x, player.y, player.size, player.size);
