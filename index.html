@@ -40,8 +40,22 @@ for (let i = 0; i < 20; i++) {
 
 let holding = false;
 
-document.addEventListener("keydown", () => holding = true);
-document.addEventListener("keyup", () => holding = false);
+document.addEventListener("keydown", e => {
+  if (e.code === "Space") {
+    holding = true;
+  }
+
+  if (e.key === "r") {
+    reset();
+  }
+});
+
+document.addEventListener("keyup", e => {
+  if (e.code === "Space") {
+    holding = false;
+  }
+});
+
 
 function reset() {
   player.y = canvas.height / 2;
@@ -87,10 +101,6 @@ function update() {
 
   requestAnimationFrame(update);
 }
-
-document.addEventListener("keydown", e => {
-  if (e.key === "r") reset();
-});
 
 update();
 </script>
