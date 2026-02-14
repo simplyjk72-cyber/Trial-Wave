@@ -52,30 +52,67 @@ generateObstacles();
 
 let holding = false;
 
+function startHold() {
+  if (gameState === "playing") {
+    holding = true;
+  }
+}
+
+function stopHold() {
+  holding = false;
+}
+
+// Keyboard
 document.addEventListener("keydown", function(e) {
-  if (e.code === "Space") holding = true;
-  if (e.key === "r") reset();
+  if (
+    e.code === "Space" ||
+    e.code === "KeyW" ||
+    e.code === "ArrowUp"
+  ) {
+    startHold();
+  }
+
+  if (e.key === "r") {
+    reset();
+  }
 });
 
 document.addEventListener("keyup", function(e) {
-  if (e.code === "Space") holding = false;
+  if (
+    e.code === "Space" ||
+    e.code === "KeyW" ||
+    e.code === "ArrowUp"
+  ) {
+    stopHold();
+  }
+});
+
+// Mouse
+document.addEventListener("mousedown", function(e) {
+  if (e.button === 0) {
+    startHold();
+  }
+});
+
+document.addEventListener("mouseup", function(e) {
+  if (e.button === 0) {
+    stopHold();
+  }
 });
 
 function reset() {
   player.y = canvas.height / 2;
   score = 0;
-  gameState = "playing";
   speed = 4;
+  gameState = "playing";
   generateObstacles();
 }
 
 function update() {
 
-  // Clear screen
   ctx.fillStyle = "black";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // If dead → show message and STOP LOGIC
   if (gameState === "dead") {
     ctx.fillStyle = "white";
     ctx.font = "40px Arial";
@@ -91,10 +128,10 @@ function update() {
   // Increase score
   score += 1;
 
-  // Slowly increase difficulty
+  // Gradually increase speed
   speed += 0.0005;
 
-  // Player movement
+  // Movement
   if (holding) {
     player.y -= 3;
   } else {
@@ -128,7 +165,7 @@ function update() {
     ctx.fillStyle = "red";
     ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
 
-    // Collision detection
+    // Collision
     if (
       player.x < obs.x + obs.width &&
       player.x + player.size > obs.x &&
@@ -138,7 +175,7 @@ function update() {
       gameState = "dead";
     }
 
-    // Endless recycling
+    // Recycle
     if (obs.x + obs.width < 0) {
       obs.x = canvas.width + Math.random() * 400;
       obs.y = Math.random() * (canvas.height - 200);
