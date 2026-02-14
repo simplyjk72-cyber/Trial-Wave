@@ -26,7 +26,7 @@ let score=0;
 let highScore=localStorage.getItem("waveHighScore")||0;
 let lastScoreTime=Date.now();
 
-let baseSpeed=4;
+let baseSpeed=6; // faster
 let speedMultiplier=1;
 let speedLevels=[0.5,1,2,3,4];
 
@@ -46,6 +46,7 @@ let obstacles=[];
 let portals=[];
 let spawnX=canvas.width;
 
+// -------- COLLISION ----------
 function rectCollision(a,b){
   return(
     a.x < b.x + b.width &&
@@ -55,50 +56,54 @@ function rectCollision(a,b){
   );
 }
 
-// 🔥 Proper triangle collision
-function triangleCollision(px,py,size,triangle){
-  // check player center
-  let cx = px + size/2;
-  let cy = py + size/2;
+function triangleCollision(px,py,size,t){
+  let cx=px+size/2;
+  let cy=py+size/2;
 
-  let {x1,y1,x2,y2,x3,y3} = triangle;
+  let area=Math.abs((t.x2-t.x1)*(t.y3-t.y1)-(t.x3-t.x1)*(t.y2-t.y1));
+  let a1=Math.abs((t.x1-cx)*(t.y2-cy)-(t.x2-cx)*(t.y1-cy));
+  let a2=Math.abs((t.x2-cx)*(t.y3-cy)-(t.x3-cx)*(t.y2-cy));
+  let a3=Math.abs((t.x3-cx)*(t.y1-cy)-(t.x1-cx)*(t.y3-cy));
 
-  let area = Math.abs((x2-x1)*(y3-y1)-(x3-x1)*(y2-y1));
-  let a1 = Math.abs((x1-cx)*(y2-cy)-(x2-cx)*(y1-cy));
-  let a2 = Math.abs((x2-cx)*(y3-cy)-(x3-cx)*(y2-cy));
-  let a3 = Math.abs((x3-cx)*(y1-cy)-(x1-cx)*(y3-cy));
-
-  return Math.abs(area - (a1+a2+a3)) < 0.5;
+  return Math.abs(area-(a1+a2+a3))<0.5;
 }
 
+// -------- SPAWNING ----------
 function spawnChunk(){
+
+  // Wall
   obstacles.push({
     type:"block",
     x:spawnX,
-    y:Math.random()*(canvas.height-250),
-    width:30,
-    height:200
+    y:Math.random()*(canvas.height-300),
+    width:40,
+    height:250
   });
 
-  let up=Math.random()<0.5;
+  // Connected slope floor->ceiling
+  let height=200;
   obstacles.push({
-    type:"ramp",
-    x:spawnX+150,
-    width:140,
-    height:140,
-    direction:up?"up":"down"
+    type:"slopeUp",
+    x:spawnX+120,
+    width:200,
+    height:height
   });
 
   obstacles.push({
-    type:"spike",
+    type:"slopeDown",
     x:spawnX+320,
-    size:35
+    width:200,
+    height:height
   });
 
-  spawnX+=500;
+  // Double spikes
+  obstacles.push({ type:"spike", x:spawnX+550, size:40 });
+  obstacles.push({ type:"spike", x:spawnX+600, size:40 });
+
+  spawnX+=800;
 }
 
-for(let i=0;i<8;i++) spawnChunk();
+for(let i=0;i<6;i++) spawnChunk();
 
 function spawnPortal(){
   let type=Math.random()<0.5?"speed":"size";
@@ -116,9 +121,10 @@ function spawnPortal(){
   }
 
   portals.push(portal);
-  spawnX+=200;
+  spawnX+=150;
 }
 
+// -------- RESET ----------
 function reset(){
   score=0;
   speedMultiplier=1;
@@ -131,9 +137,10 @@ function reset(){
   obstacles=[];
   portals=[];
   spawnX=canvas.width;
-  for(let i=0;i<8;i++) spawnChunk();
+  for(let i=0;i<6;i++) spawnChunk();
 }
 
+// -------- INPUT ----------
 function startHold(){ if(gameState==="playing") holding=true; }
 function stopHold(){ holding=false; }
 
@@ -147,14 +154,16 @@ document.addEventListener("keyup",e=>{
 document.addEventListener("mousedown",e=>{ if(e.button===0) startHold(); });
 document.addEventListener("mouseup",e=>{ if(e.button===0) stopHold(); });
 
+// -------- UPDATE ----------
 function update(){
+
   ctx.fillStyle="black";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
   if(gameState==="dead"){
     ctx.fillStyle="white";
     ctx.font="40px Arial";
-    ctx.fillText("You Died - Press R",canvas.width/2-170,canvas.height/2);
+    ctx.fillText("YOU DIED - PRESS R",canvas.width/2-180,canvas.height/2);
     requestAnimationFrame(update);
     return;
   }
@@ -163,7 +172,7 @@ function update(){
   if(now-lastScoreTime>=500){
     score++;
     lastScoreTime=now;
-    if(score%50===0) spawnPortal();
+    if(score%40===0) spawnPortal();
   }
 
   if(score>highScore){
@@ -173,29 +182,33 @@ function update(){
 
   let speed=baseSpeed*speedMultiplier;
 
-  if(holding) player.y-=3*speedMultiplier;
-  else player.y+=3*speedMultiplier;
+  if(holding) player.y-=4*speedMultiplier;
+  else player.y+=4*speedMultiplier;
 
   if(player.y<=5||player.y+player.size>=canvas.height-5){
     borderTime++;
-    if(borderTime>40) gameState="dead";
-  }else borderTime=0;
+    if(borderTime>25) gameState="dead";
+  } else borderTime=0;
 
   if(player.y<5) player.y=5;
   if(player.y+player.size>canvas.height-5)
     player.y=canvas.height-player.size-5;
 
+  // Borders
   ctx.fillStyle="white";
   ctx.fillRect(0,0,canvas.width,5);
   ctx.fillRect(0,canvas.height-5,canvas.width,5);
 
+  // UI
   ctx.font="20px Arial";
   ctx.fillText("Score: "+score,20,40);
-  ctx.fillText("Highscore: "+highScore,160,40);
+  ctx.fillText("Highscore: "+highScore,150,40);
 
+  // Player
   ctx.fillStyle="cyan";
   ctx.fillRect(player.x,player.y,player.size,player.size);
 
+  // -------- OBSTACLES --------
   for(let o of obstacles){
     o.x-=speed;
 
@@ -205,96 +218,113 @@ function update(){
       if(rectCollision(player,o)) gameState="dead";
     }
 
-    if(o.type==="ramp"){
+    if(o.type==="slopeUp"){
+      let t={
+        x1:o.x,
+        y1:canvas.height-5,
+        x2:o.x+o.width,
+        y2:canvas.height-5,
+        x3:o.x+o.width,
+        y3:5
+      };
+
       ctx.fillStyle="orange";
       ctx.beginPath();
-
-      let triangle;
-
-      if(o.direction==="up"){
-        let x1=o.x;
-        let y1=canvas.height-5;
-        let x2=o.x+o.width;
-        let y2=canvas.height-5;
-        let x3=o.x+o.width;
-        let y3=canvas.height-5-o.height;
-
-        ctx.moveTo(x1,y1);
-        ctx.lineTo(x2,y2);
-        ctx.lineTo(x3,y3);
-
-        triangle={x1,y1,x2,y2,x3,y3};
-      }else{
-        let x1=o.x;
-        let y1=5;
-        let x2=o.x+o.width;
-        let y2=5;
-        let x3=o.x+o.width;
-        let y3=5+o.height;
-
-        ctx.moveTo(x1,y1);
-        ctx.lineTo(x2,y2);
-        ctx.lineTo(x3,y3);
-
-        triangle={x1,y1,x2,y2,x3,y3};
-      }
-
+      ctx.moveTo(t.x1,t.y1);
+      ctx.lineTo(t.x2,t.y2);
+      ctx.lineTo(t.x3,t.y3);
       ctx.closePath();
       ctx.fill();
 
-      if(triangleCollision(player.x,player.y,player.size,triangle))
+      if(triangleCollision(player.x,player.y,player.size,t))
+        gameState="dead";
+    }
+
+    if(o.type==="slopeDown"){
+      let t={
+        x1:o.x,
+        y1:5,
+        x2:o.x+o.width,
+        y2:5,
+        x3:o.x+o.width,
+        y3:canvas.height-5
+      };
+
+      ctx.fillStyle="orange";
+      ctx.beginPath();
+      ctx.moveTo(t.x1,t.y1);
+      ctx.lineTo(t.x2,t.y2);
+      ctx.lineTo(t.x3,t.y3);
+      ctx.closePath();
+      ctx.fill();
+
+      if(triangleCollision(player.x,player.y,player.size,t))
         gameState="dead";
     }
 
     if(o.type==="spike"){
       let baseY=canvas.height-5;
-      let x1=o.x;
-      let y1=baseY;
-      let x2=o.x+o.size/2;
-      let y2=baseY-o.size;
-      let x3=o.x+o.size;
-      let y3=baseY;
+      let t={
+        x1:o.x,
+        y1:baseY,
+        x2:o.x+o.size/2,
+        y2:baseY-o.size,
+        x3:o.x+o.size,
+        y3:baseY
+      };
 
       ctx.fillStyle="yellow";
       ctx.beginPath();
-      ctx.moveTo(x1,y1);
-      ctx.lineTo(x2,y2);
-      ctx.lineTo(x3,y3);
+      ctx.moveTo(t.x1,t.y1);
+      ctx.lineTo(t.x2,t.y2);
+      ctx.lineTo(t.x3,t.y3);
       ctx.closePath();
       ctx.fill();
 
-      let triangle={x1,y1,x2,y2,x3,y3};
-      if(triangleCollision(player.x,player.y,player.size,triangle))
+      if(triangleCollision(player.x,player.y,player.size,t))
         gameState="dead";
     }
 
     if(o.x<-300) spawnChunk();
   }
 
+  // -------- PORTALS --------
   for(let p of portals){
     p.x-=speed;
 
-    ctx.beginPath();
-    ctx.strokeStyle = p.type==="speed" ? "cyan":"magenta";
-    ctx.lineWidth=6;
-    ctx.arc(p.x,canvas.height/2,80,0,Math.PI*2);
-    ctx.stroke();
+    ctx.fillStyle = p.type==="speed" ? "cyan":"magenta";
+    ctx.fillRect(p.x-25,0,50,canvas.height);
 
-    if(player.x+player.size>p.x-40 &&
-       player.x<p.x+40){
+    ctx.fillStyle="black";
+    ctx.font="40px Arial";
 
-         if(p.type==="speed") speedMultiplier=p.value;
-         else{
-           if(p.value==="mini"){
-             player.isMini=true;
-             player.size=player.miniSize;
-           }else{
-             player.isMini=false;
-             player.size=player.normalSize;
-           }
-         }
+    if(p.type==="speed"){
+      let arrows="";
+      if(p.value===0.5) arrows="↓";
+      if(p.value===1) arrows="→";
+      if(p.value===2) arrows="↑↑";
+      if(p.value===3) arrows="↑↑↑";
+      if(p.value===4) arrows="↑↑↑↑";
+      ctx.fillText(arrows,p.x-20,canvas.height/2);
+    } else {
+      ctx.fillText("S",p.x-10,canvas.height/2);
+    }
 
-         p.x=-9999;
+    if(player.x+player.size>p.x-25 &&
+       player.x<p.x+25){
+
+      if(p.type==="speed") speedMultiplier=p.value;
+      else{
+        if(p.value==="mini"){
+          player.isMini=true;
+          player.size=player.miniSize;
+        }else{
+          player.isMini=false;
+          player.size=player.normalSize;
+        }
+      }
+
+      p.x=-9999;
     }
   }
 
