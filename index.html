@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Playable Wave</title>
+<title>Real ZigZag Wave</title>
 <style>
 body { margin:0; overflow:hidden; background:black; }
 canvas { display:block; }
@@ -26,48 +26,65 @@ let score = 0;
 let highScore = localStorage.getItem("waveHighScore") || 0;
 let lastScoreTime = Date.now();
 
-let baseSpeed = 6; // Slower = playable
+let baseSpeed = 8; // harder
 let speedMultiplier = 1;
 
 let player = {
   x: 200,
-  y: canvas.height / 2,
+  y: canvas.height/2,
   size: 14,
-  hitbox: 10 // smaller hitbox like GD
+  hitbox: 10
 };
 
 let holding = false;
 
 let segments = [];
-let segmentWidth = 140;
-let gapSize = 180; // MUCH BIGGER GAP
+let segmentWidth = 80; // smaller = harder
+let gapSize = 140;     // tighter gap
 let spawnX = canvas.width;
+let lastCenterY = canvas.height/2;
 
-// -------- GD STYLE HITBOX ----------
-function triangleCollision(px, py, size, t) {
-  let cx = px + size / 2;
-  let cy = py + size / 2;
+// ------- TRIANGLE COLLISION --------
+function triangleCollision(px, py, size, t){
+  let cx = px + size/2;
+  let cy = py + size/2;
 
-  let area = Math.abs((t.x2 - t.x1)*(t.y3 - t.y1) - (t.x3 - t.x1)*(t.y2 - t.y1));
-  let a1 = Math.abs((t.x1 - cx)*(t.y2 - cy) - (t.x2 - cx)*(t.y1 - cy));
-  let a2 = Math.abs((t.x2 - cx)*(t.y3 - cy) - (t.x3 - cx)*(t.y2 - cy));
-  let a3 = Math.abs((t.x3 - cx)*(t.y1 - cy) - (t.x1 - cx)*(t.y3 - cy));
+  let area = Math.abs((t.x2-t.x1)*(t.y3-t.y1)-(t.x3-t.x1)*(t.y2-t.y1));
+  let a1 = Math.abs((t.x1-cx)*(t.y2-cy)-(t.x2-cx)*(t.y1-cy));
+  let a2 = Math.abs((t.x2-cx)*(t.y3-cy)-(t.x3-cx)*(t.y2-cy));
+  let a3 = Math.abs((t.x3-cx)*(t.y1-cy)-(t.x1-cx)*(t.y3-cy));
 
-  return Math.abs(area - (a1 + a2 + a3)) < 1;
+  return Math.abs(area-(a1+a2+a3)) < 0.5;
 }
 
-// -------- SPAWN CONNECTED TRIANGLES ----------
-function spawnSegment() {
+// ------- SPAWN TRUE 🔺🔻 CONNECTED --------
+function spawnSegment(){
+
+  // random vertical movement
+  let change = (Math.random()*120 - 60);
+  let centerY = lastCenterY + change;
+
+  // clamp inside screen
+  centerY = Math.max(150, Math.min(canvas.height-150, centerY));
+
+  let topY = centerY - gapSize/2;
+  let bottomY = centerY + gapSize/2;
+
   segments.push({
     x: spawnX,
-    direction: segments.length % 2 === 0 ? "down" : "up",
+    topY: topY,
+    bottomY: bottomY,
+    prevTopY: lastCenterY - gapSize/2,
+    prevBottomY: lastCenterY + gapSize/2
   });
+
+  lastCenterY = centerY;
   spawnX += segmentWidth;
 }
 
-for (let i = 0; i < 15; i++) spawnSegment();
+for(let i=0;i<20;i++) spawnSegment();
 
-// -------- INPUT ----------
+// -------- INPUT --------
 function startHold(){ if(gameState==="playing") holding=true; }
 function stopHold(){ holding=false; }
 
@@ -81,7 +98,7 @@ document.addEventListener("keyup", e=>{
 document.addEventListener("mousedown", e=>{ if(e.button===0) startHold(); });
 document.addEventListener("mouseup", e=>{ if(e.button===0) stopHold(); });
 
-// -------- UPDATE ----------
+// -------- UPDATE --------
 function update(){
 
   ctx.fillStyle="black";
@@ -90,23 +107,23 @@ function update(){
   if(gameState==="dead"){
     ctx.fillStyle="white";
     ctx.font="40px Arial";
-    ctx.fillText("GIT GUD - PRESS R", canvas.width/2-180, canvas.height/2);
+    ctx.fillText("YOU DIED - PRESS R", canvas.width/2-180, canvas.height/2);
     requestAnimationFrame(update);
     return;
   }
 
-  // Score every 0.5s
+  // score every 0.5s
   let now = Date.now();
-  if(now - lastScoreTime >= 500){
+  if(now-lastScoreTime >= 500){
     score++;
     lastScoreTime = now;
 
-    // Gradual difficulty increase
-    if(score % 20 === 0 && gapSize > 110){
-      gapSize -= 10; // slowly tighter
+    // harder over time
+    if(score % 15 === 0 && gapSize > 100){
+      gapSize -= 8;
     }
-    if(score % 30 === 0){
-      speedMultiplier += 0.1;
+    if(score % 25 === 0){
+      speedMultiplier += 0.15;
     }
   }
 
@@ -117,9 +134,8 @@ function update(){
 
   let speed = baseSpeed * speedMultiplier;
 
-  // REAL WAVE FEEL (constant diagonal speed)
-  let waveSpeed = 5 * speedMultiplier;
-
+  // wave movement (45° feel)
+  let waveSpeed = 6 * speedMultiplier;
   if(holding) player.y -= waveSpeed;
   else player.y += waveSpeed;
 
@@ -127,45 +143,52 @@ function update(){
   ctx.fillRect(player.x, player.y, player.size, player.size);
 
   for(let s of segments){
+
     s.x -= speed;
 
-    let center = canvas.height / 2;
-    let halfGap = gapSize / 2;
-
-    let t;
-
-    if(s.direction === "down"){
-      t = {
-        x1: s.x,
-        y1: 0,
-        x2: s.x + segmentWidth,
-        y2: 0,
-        x3: s.x + segmentWidth,
-        y3: center - halfGap
-      };
-    } else {
-      t = {
-        x1: s.x,
-        y1: canvas.height,
-        x2: s.x + segmentWidth,
-        y2: canvas.height,
-        x3: s.x + segmentWidth,
-        y3: center + halfGap
-      };
-    }
+    // ----- DRAW CONNECTED TOP SLOPE (🔺 /) -----
+    let topTriangle = {
+      x1: s.x,
+      y1: s.prevTopY,
+      x2: s.x + segmentWidth,
+      y2: s.topY,
+      x3: s.x,
+      y3: 0
+    };
 
     ctx.fillStyle="orange";
     ctx.beginPath();
-    ctx.moveTo(t.x1, t.y1);
-    ctx.lineTo(t.x2, t.y2);
-    ctx.lineTo(t.x3, t.y3);
+    ctx.moveTo(topTriangle.x1, topTriangle.y1);
+    ctx.lineTo(topTriangle.x2, topTriangle.y2);
+    ctx.lineTo(topTriangle.x3, topTriangle.y3);
     ctx.closePath();
     ctx.fill();
 
-    if(triangleCollision(player.x + 2, player.y + 2, player.hitbox, t))
-      gameState="dead";
+    // ----- DRAW CONNECTED BOTTOM SLOPE (🔻 \) -----
+    let bottomTriangle = {
+      x1: s.x,
+      y1: s.prevBottomY,
+      x2: s.x + segmentWidth,
+      y2: s.bottomY,
+      x3: s.x,
+      y3: canvas.height
+    };
 
-    if(s.x < -segmentWidth) spawnSegment();
+    ctx.beginPath();
+    ctx.moveTo(bottomTriangle.x1, bottomTriangle.y1);
+    ctx.lineTo(bottomTriangle.x2, bottomTriangle.y2);
+    ctx.lineTo(bottomTriangle.x3, bottomTriangle.y3);
+    ctx.closePath();
+    ctx.fill();
+
+    if(triangleCollision(player.x+2, player.y+2, player.hitbox, topTriangle) ||
+       triangleCollision(player.x+2, player.y+2, player.hitbox, bottomTriangle))
+       gameState="dead";
+
+    if(s.x < -segmentWidth){
+      segments.shift();
+      spawnSegment();
+    }
   }
 
   ctx.fillStyle="white";
@@ -181,6 +204,3 @@ update();
 </body>
 </html>
 
-</script>
-</body>
-</html>
