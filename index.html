@@ -3,14 +3,8 @@
 <head>
   <title>Wave Game</title>
   <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      background: black;
-    }
-    canvas {
-      display: block;
-    }
+    body { margin: 0; overflow: hidden; background: black; }
+    canvas { display: block; }
   </style>
 </head>
 <body>
@@ -30,9 +24,11 @@ window.addEventListener("resize", resize);
 
 let gameState = "playing";
 let score = 0;
+let highScore = localStorage.getItem("waveHighScore") || 0;
 let speed = 4;
 let holding = false;
 let lastScoreTime = Date.now();
+let borderTime = 0;
 
 let player = {
   x: 150,
@@ -41,55 +37,77 @@ let player = {
 };
 
 let obstacles = [];
+let slopes = [];
+let portals = [];
 
-function generateObstacles() {
+function generateLevel() {
   obstacles = [];
+  slopes = [];
+  portals = [];
+
   for (let i = 0; i < 15; i++) {
     obstacles.push({
-      x: canvas.width + i * 300,
-      y: Math.random() * (canvas.height - 200),
+      x: canvas.width + i * 400,
+      y: Math.random() * (canvas.height - 250),
       width: 20,
-      height: 150
+      height: 180
+    });
+
+    slopes.push({
+      x: canvas.width + 200 + i * 600,
+      y: canvas.height - 5,
+      size: 40,
+      direction: "up"
+    });
+
+    portals.push({
+      x: canvas.width + 500 + i * 1200,
+      y: canvas.height / 2 - 40,
+      size: 40
     });
   }
 }
 
-generateObstacles();
+generateLevel();
 
 function reset() {
   player.y = canvas.height / 2;
   score = 0;
   speed = 4;
+  borderTime = 0;
   gameState = "playing";
   lastScoreTime = Date.now();
-  generateObstacles();
+  generateLevel();
 }
 
 function startHold() {
   if (gameState === "playing") holding = true;
 }
-
 function stopHold() {
   holding = false;
 }
 
-// Controls
 document.addEventListener("keydown", e => {
   if (["Space","KeyW","ArrowUp"].includes(e.code)) startHold();
   if (e.key === "r") reset();
 });
-
 document.addEventListener("keyup", e => {
   if (["Space","KeyW","ArrowUp"].includes(e.code)) stopHold();
 });
-
 document.addEventListener("mousedown", e => {
   if (e.button === 0) startHold();
 });
-
 document.addEventListener("mouseup", e => {
   if (e.button === 0) stopHold();
 });
+
+function triangleCollision(px, py, size, tx, ty, tsize) {
+  return (
+    px < tx + tsize &&
+    px + size > tx &&
+    py + size > ty - tsize
+  );
+}
 
 function update() {
 
@@ -102,67 +120,114 @@ function update() {
     ctx.fillText("You Died - Press R", canvas.width/2 - 170, canvas.height/2);
 
     ctx.font = "20px Arial";
-    ctx.fillText("Final Score: " + score, canvas.width/2 - 70, canvas.height/2 + 40);
+    ctx.fillText("Score: " + score, canvas.width/2 - 40, canvas.height/2 + 40);
 
     requestAnimationFrame(update);
     return;
   }
 
-  // Timed score: +1 every 0.5 seconds (2 per second)
+  // Score timing (2 per second)
   let currentTime = Date.now();
   if (currentTime - lastScoreTime >= 500) {
-    score += 1;
+    score++;
     lastScoreTime = currentTime;
   }
 
-  // Slight speed increase
-  speed += 0.0003;
+  if (score > highScore) {
+    highScore = score;
+    localStorage.setItem("waveHighScore", highScore);
+  }
+
+  speed += 0.0005;
 
   // Movement
   if (holding) player.y -= 3;
   else player.y += 3;
 
-  // Borders
+  // Border camping punishment
+  if (player.y <= 5 || player.y + player.size >= canvas.height - 5) {
+    borderTime++;
+    if (borderTime > 60) gameState = "dead";
+  } else {
+    borderTime = 0;
+  }
+
   if (player.y < 5) player.y = 5;
   if (player.y + player.size > canvas.height - 5)
     player.y = canvas.height - player.size - 5;
 
-  // Draw borders
+  // Borders
   ctx.fillStyle = "white";
   ctx.fillRect(0, 0, canvas.width, 5);
   ctx.fillRect(0, canvas.height - 5, canvas.width, 5);
 
-  // Draw score
+  // Score display
   ctx.fillStyle = "white";
-  ctx.font = "24px Arial";
+  ctx.font = "20px Arial";
   ctx.fillText("Score: " + score, 20, 40);
+  ctx.fillText("Highscore: " + highScore, 160, 40);
 
-  // Draw player
+  // Player
   ctx.fillStyle = "cyan";
   ctx.fillRect(player.x, player.y, player.size, player.size);
 
   // Obstacles
   for (let obs of obstacles) {
     obs.x -= speed;
-
     ctx.fillStyle = "red";
     ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
 
-    // Collision
     if (
       player.x < obs.x + obs.width &&
       player.x + player.size > obs.x &&
       player.y < obs.y + obs.height &&
       player.y + player.size > obs.y
-    ) {
+    ) gameState = "dead";
+
+    if (obs.x + obs.width < 0) {
+      obs.x = canvas.width + Math.random() * 400;
+      obs.y = Math.random() * (canvas.height - 250);
+    }
+  }
+
+  // Slopes (triangles)
+  for (let s of slopes) {
+    s.x -= speed;
+
+    ctx.fillStyle = "orange";
+    ctx.beginPath();
+    ctx.moveTo(s.x, s.y);
+    ctx.lineTo(s.x + s.size, s.y);
+    ctx.lineTo(s.x + s.size, s.y - s.size);
+    ctx.closePath();
+    ctx.fill();
+
+    if (triangleCollision(player.x, player.y, player.size, s.x, s.y, s.size))
       gameState = "dead";
+
+    if (s.x + s.size < 0)
+      s.x = canvas.width + Math.random() * 800;
+  }
+
+  // Portals (speed boost)
+  for (let p of portals) {
+    p.x -= speed;
+
+    ctx.fillStyle = "blue";
+    ctx.fillRect(p.x, p.y, p.size, p.size);
+
+    if (
+      player.x < p.x + p.size &&
+      player.x + player.size > p.x &&
+      player.y < p.y + p.size &&
+      player.y + player.size > p.y
+    ) {
+      speed += 2;
+      p.x = canvas.width + 2000;
     }
 
-    // Recycle
-    if (obs.x + obs.width < 0) {
-      obs.x = canvas.width + Math.random() * 300;
-      obs.y = Math.random() * (canvas.height - 200);
-    }
+    if (p.x + p.size < 0)
+      p.x = canvas.width + Math.random() * 2000;
   }
 
   requestAnimationFrame(update);
