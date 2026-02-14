@@ -82,9 +82,9 @@ ctx.fillRect(0, canvas.height - 5, canvas.width, 5); // bottom bar
 
 if (alive) {
   if (holding) {
-    player.y -= 5;
+    player.y -= 3;
   } else {
-    player.y += 5;
+    player.y += 3;
   }
 }
 
@@ -102,7 +102,28 @@ if (player.y + player.size > canvas.height) {
   ctx.fillStyle = "cyan";
   ctx.fillRect(player.x, player.y, player.size, player.size);
 
-  obstacles.forEach(obs => {
+ obstacles.forEach(obs => {
+
+  // Move only if alive
+  if (alive) {
+    obs.x -= currentSpeed || speed;
+  }
+
+  ctx.fillStyle = "red";
+  ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+
+  // Only check collision if alive
+  if (alive &&
+      player.x < obs.x + obs.width &&
+      player.x + player.size > obs.x &&
+      player.y < obs.y + obs.height &&
+      player.y + player.size > obs.y
+  ) {
+      alive = false;
+  }
+
+});
+
 
   if (alive) {
     obs.x -= speed;
