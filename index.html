@@ -46,9 +46,32 @@ let obstacles=[];
 let portals=[];
 let spawnX=canvas.width;
 
-function spawnChunk(){
+function rectCollision(a,b){
+  return(
+    a.x < b.x + b.width &&
+    a.x + a.size > b.x &&
+    a.y < b.y + b.height &&
+    a.y + a.size > b.y
+  );
+}
 
-  // Always spawn obstacle
+// 🔥 Proper triangle collision
+function triangleCollision(px,py,size,triangle){
+  // check player center
+  let cx = px + size/2;
+  let cy = py + size/2;
+
+  let {x1,y1,x2,y2,x3,y3} = triangle;
+
+  let area = Math.abs((x2-x1)*(y3-y1)-(x3-x1)*(y2-y1));
+  let a1 = Math.abs((x1-cx)*(y2-cy)-(x2-cx)*(y1-cy));
+  let a2 = Math.abs((x2-cx)*(y3-cy)-(x3-cx)*(y2-cy));
+  let a3 = Math.abs((x3-cx)*(y1-cy)-(x1-cx)*(y3-cy));
+
+  return Math.abs(area - (a1+a2+a3)) < 0.5;
+}
+
+function spawnChunk(){
   obstacles.push({
     type:"block",
     x:spawnX,
@@ -57,8 +80,7 @@ function spawnChunk(){
     height:200
   });
 
-  // Alternating ramps
-  let up = Math.random()<0.5;
+  let up=Math.random()<0.5;
   obstacles.push({
     type:"ramp",
     x:spawnX+150,
@@ -67,12 +89,10 @@ function spawnChunk(){
     direction:up?"up":"down"
   });
 
-  // Spikes
   obstacles.push({
     type:"spike",
-    x:spawnX+300,
-    size:35,
-    y:canvas.height-5
+    x:spawnX+320,
+    size:35
   });
 
   spawnX+=500;
@@ -85,8 +105,6 @@ function spawnPortal(){
 
   let portal={
     x:spawnX,
-    width:40,
-    height:canvas.height,
     type:type
   };
 
@@ -129,15 +147,6 @@ document.addEventListener("keyup",e=>{
 document.addEventListener("mousedown",e=>{ if(e.button===0) startHold(); });
 document.addEventListener("mouseup",e=>{ if(e.button===0) stopHold(); });
 
-function rectCollision(a,b){
-  return(
-    a.x < b.x + b.width &&
-    a.x + a.size > b.x &&
-    a.y < b.y + b.height &&
-    a.y + a.size > b.y
-  );
-}
-
 function update(){
   ctx.fillStyle="black";
   ctx.fillRect(0,0,canvas.width,canvas.height);
@@ -164,7 +173,6 @@ function update(){
 
   let speed=baseSpeed*speedMultiplier;
 
-  // Y movement scales with speed
   if(holding) player.y-=3*speedMultiplier;
   else player.y+=3*speedMultiplier;
 
@@ -200,43 +208,69 @@ function update(){
     if(o.type==="ramp"){
       ctx.fillStyle="orange";
       ctx.beginPath();
+
+      let triangle;
+
       if(o.direction==="up"){
-        ctx.moveTo(o.x,canvas.height-5);
-        ctx.lineTo(o.x+o.width,canvas.height-5);
-        ctx.lineTo(o.x+o.width,canvas.height-5-o.height);
+        let x1=o.x;
+        let y1=canvas.height-5;
+        let x2=o.x+o.width;
+        let y2=canvas.height-5;
+        let x3=o.x+o.width;
+        let y3=canvas.height-5-o.height;
+
+        ctx.moveTo(x1,y1);
+        ctx.lineTo(x2,y2);
+        ctx.lineTo(x3,y3);
+
+        triangle={x1,y1,x2,y2,x3,y3};
       }else{
-        ctx.moveTo(o.x,5);
-        ctx.lineTo(o.x+o.width,5);
-        ctx.lineTo(o.x+o.width,5+o.height);
+        let x1=o.x;
+        let y1=5;
+        let x2=o.x+o.width;
+        let y2=5;
+        let x3=o.x+o.width;
+        let y3=5+o.height;
+
+        ctx.moveTo(x1,y1);
+        ctx.lineTo(x2,y2);
+        ctx.lineTo(x3,y3);
+
+        triangle={x1,y1,x2,y2,x3,y3};
       }
+
       ctx.closePath();
       ctx.fill();
 
-      if(player.x+player.size>o.x &&
-         player.x<o.x+o.width){
-           gameState="dead";
-      }
+      if(triangleCollision(player.x,player.y,player.size,triangle))
+        gameState="dead";
     }
 
     if(o.type==="spike"){
+      let baseY=canvas.height-5;
+      let x1=o.x;
+      let y1=baseY;
+      let x2=o.x+o.size/2;
+      let y2=baseY-o.size;
+      let x3=o.x+o.size;
+      let y3=baseY;
+
       ctx.fillStyle="yellow";
       ctx.beginPath();
-      ctx.moveTo(o.x,o.y);
-      ctx.lineTo(o.x+o.size/2,o.y-o.size);
-      ctx.lineTo(o.x+o.size,o.y);
+      ctx.moveTo(x1,y1);
+      ctx.lineTo(x2,y2);
+      ctx.lineTo(x3,y3);
       ctx.closePath();
       ctx.fill();
 
-      if(player.x+player.size>o.x &&
-         player.x<o.x+o.size &&
-         player.y+player.size>o.y-o.size)
-         gameState="dead";
+      let triangle={x1,y1,x2,y2,x3,y3};
+      if(triangleCollision(player.x,player.y,player.size,triangle))
+        gameState="dead";
     }
 
     if(o.x<-300) spawnChunk();
   }
 
-  // PORTALS (full vertical, unskippable)
   for(let p of portals){
     p.x-=speed;
 
@@ -248,9 +282,9 @@ function update(){
 
     if(player.x+player.size>p.x-40 &&
        player.x<p.x+40){
-         if(p.type==="speed"){
-           speedMultiplier=p.value;
-         }else{
+
+         if(p.type==="speed") speedMultiplier=p.value;
+         else{
            if(p.value==="mini"){
              player.isMini=true;
              player.size=player.miniSize;
@@ -259,6 +293,7 @@ function update(){
              player.size=player.normalSize;
            }
          }
+
          p.x=-9999;
     }
   }
