@@ -1,14 +1,16 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Trial Wave</title>
-<style>
-body { margin: 0; overflow: hidden; background: black; }
-canvas { display: block; }
-</style>
+  <title>Trial Wave</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: black; }
+    canvas { display: block; }
+  </style>
 </head>
 <body>
+
 <canvas id="game"></canvas>
+
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -123,70 +125,5 @@ function update() {
 update();
 </script>
 
-
-  ctx.fillStyle = "black";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // Freeze screen if dead
-  if (gameState === "dead") {
-    ctx.fillStyle = "white";
-    ctx.font = "40px Arial";
-    ctx.fillText("You Died - Press R", canvas.width/2 - 150, canvas.height/2);
-    requestAnimationFrame(update);
-    return;
-  }
-
-  // Movement
-  if (holding) {
-    player.y -= 3;
-  } else {
-    player.y += 3;
-  }
-
-  // Borders
-  if (player.y < 0) player.y = 0;
-  if (player.y + player.size > canvas.height)
-    player.y = canvas.height - player.size;
-
-  // Draw borders visually
-  ctx.fillStyle = "white";
-  ctx.fillRect(0, 0, canvas.width, 5);
-  ctx.fillRect(0, canvas.height - 5, canvas.width, 5);
-
-  // Draw player
-  ctx.fillStyle = "cyan";
-  ctx.fillRect(player.x, player.y, player.size, player.size);
-
-  // Obstacles
-  obstacles.forEach(obs => {
-
-    obs.x -= speed;
-
-    ctx.fillStyle = "red";
-    ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
-
-    // Collision
-    if (
-      player.x < obs.x + obs.width &&
-      player.x + player.size > obs.x &&
-      player.y < obs.y + obs.height &&
-      player.y + player.size > obs.y
-    ) {
-      gameState = "dead";
-    }
-
-    // Endless recycle
-    if (obs.x + obs.width < 0) {
-      obs.x = canvas.width + Math.random() * 300;
-      obs.y = Math.random() * (canvas.height - 150);
-    }
-
-  });
-
-  requestAnimationFrame(update);
-}
-
-update();
-</script>
 </body>
 </html>
