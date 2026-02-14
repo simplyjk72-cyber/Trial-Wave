@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Trial Wave</title>
+  <title>Wave Game</title>
   <style>
     body {
       margin: 0;
@@ -21,11 +21,17 @@
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener("resize", resize);
 
 let gameState = "playing";
 let score = 0;
+let speed = 4;
+let holding = false;
 
 let player = {
   x: 150,
@@ -33,14 +39,13 @@ let player = {
   size: 12
 };
 
-let speed = 4;
 let obstacles = [];
 
 function generateObstacles() {
   obstacles = [];
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 15; i++) {
     obstacles.push({
-      x: 600 + i * 300,
+      x: canvas.width + i * 300,
       y: Math.random() * (canvas.height - 200),
       width: 20,
       height: 150
@@ -50,56 +55,6 @@ function generateObstacles() {
 
 generateObstacles();
 
-let holding = false;
-
-function startHold() {
-  if (gameState === "playing") {
-    holding = true;
-  }
-}
-
-function stopHold() {
-  holding = false;
-}
-
-// Keyboard
-document.addEventListener("keydown", function(e) {
-  if (
-    e.code === "Space" ||
-    e.code === "KeyW" ||
-    e.code === "ArrowUp"
-  ) {
-    startHold();
-  }
-
-  if (e.key === "r") {
-    reset();
-  }
-});
-
-document.addEventListener("keyup", function(e) {
-  if (
-    e.code === "Space" ||
-    e.code === "KeyW" ||
-    e.code === "ArrowUp"
-  ) {
-    stopHold();
-  }
-});
-
-// Mouse
-document.addEventListener("mousedown", function(e) {
-  if (e.button === 0) {
-    startHold();
-  }
-});
-
-document.addEventListener("mouseup", function(e) {
-  if (e.button === 0) {
-    stopHold();
-  }
-});
-
 function reset() {
   player.y = canvas.height / 2;
   score = 0;
@@ -107,6 +62,32 @@ function reset() {
   gameState = "playing";
   generateObstacles();
 }
+
+function startHold() {
+  if (gameState === "playing") holding = true;
+}
+
+function stopHold() {
+  holding = false;
+}
+
+// Controls
+document.addEventListener("keydown", e => {
+  if (["Space","KeyW","ArrowUp"].includes(e.code)) startHold();
+  if (e.key === "r") reset();
+});
+
+document.addEventListener("keyup", e => {
+  if (["Space","KeyW","ArrowUp"].includes(e.code)) stopHold();
+});
+
+document.addEventListener("mousedown", e => {
+  if (e.button === 0) startHold();
+});
+
+document.addEventListener("mouseup", e => {
+  if (e.button === 0) stopHold();
+});
 
 function update() {
 
@@ -125,18 +106,15 @@ function update() {
     return;
   }
 
-  // Increase score
-  score += 1;
+  // Score increases
+  score++;
 
-  // Gradually increase speed
-  speed += 0.0005;
+  // Slight speed increase
+  speed += 0.0003;
 
   // Movement
-  if (holding) {
-    player.y -= 3;
-  } else {
-    player.y += 3;
-  }
+  if (holding) player.y -= 3;
+  else player.y += 3;
 
   // Borders
   if (player.y < 5) player.y = 5;
@@ -148,18 +126,17 @@ function update() {
   ctx.fillRect(0, 0, canvas.width, 5);
   ctx.fillRect(0, canvas.height - 5, canvas.width, 5);
 
-  // Draw score
-  ctx.font = "20px Arial";
-  ctx.fillText("Score: " + score, 20, 30);
+  // Draw score (TOP LEFT CLEARLY VISIBLE)
+  ctx.fillStyle = "white";
+  ctx.font = "24px Arial";
+  ctx.fillText("Score: " + score, 20, 40);
 
   // Draw player
   ctx.fillStyle = "cyan";
   ctx.fillRect(player.x, player.y, player.size, player.size);
 
   // Obstacles
-  for (let i = 0; i < obstacles.length; i++) {
-    let obs = obstacles[i];
-
+  for (let obs of obstacles) {
     obs.x -= speed;
 
     ctx.fillStyle = "red";
@@ -177,7 +154,7 @@ function update() {
 
     // Recycle
     if (obs.x + obs.width < 0) {
-      obs.x = canvas.width + Math.random() * 400;
+      obs.x = canvas.width + Math.random() * 300;
       obs.y = Math.random() * (canvas.height - 200);
     }
   }
@@ -190,4 +167,5 @@ update();
 
 </body>
 </html>
+
 
