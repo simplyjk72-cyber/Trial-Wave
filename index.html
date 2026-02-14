@@ -25,7 +25,6 @@ let player = {
 };
 
 let speed = 4;
-
 let obstacles = [];
 
 function generateObstacles() {
@@ -44,13 +43,19 @@ generateObstacles();
 
 let holding = false;
 
-document.addEventListener("keydown", e => {
-  if (e.code === "Space") holding = true;
-  if (e.key === "r") reset();
+document.addEventListener("keydown", function(e) {
+  if (e.code === "Space") {
+    holding = true;
+  }
+  if (e.key === "r") {
+    reset();
+  }
 });
 
-document.addEventListener("keyup", e => {
-  if (e.code === "Space") holding = false;
+document.addEventListener("keyup", function(e) {
+  if (e.code === "Space") {
+    holding = false;
+  }
 });
 
 function reset() {
@@ -60,6 +65,64 @@ function reset() {
 }
 
 function update() {
+
+  ctx.fillStyle = "black";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  if (gameState === "dead") {
+    ctx.fillStyle = "white";
+    ctx.font = "40px Arial";
+    ctx.fillText("You Died - Press R", canvas.width/2 - 150, canvas.height/2);
+    requestAnimationFrame(update);
+    return;
+  }
+
+  if (holding) {
+    player.y -= 3;
+  } else {
+    player.y += 3;
+  }
+
+  if (player.y < 0) player.y = 0;
+  if (player.y + player.size > canvas.height)
+    player.y = canvas.height - player.size;
+
+  ctx.fillStyle = "white";
+  ctx.fillRect(0, 0, canvas.width, 5);
+  ctx.fillRect(0, canvas.height - 5, canvas.width, 5);
+
+  ctx.fillStyle = "cyan";
+  ctx.fillRect(player.x, player.y, player.size, player.size);
+
+  for (let i = 0; i < obstacles.length; i++) {
+    let obs = obstacles[i];
+
+    obs.x -= speed;
+
+    ctx.fillStyle = "red";
+    ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+
+    if (
+      player.x < obs.x + obs.width &&
+      player.x + player.size > obs.x &&
+      player.y < obs.y + obs.height &&
+      player.y + player.size > obs.y
+    ) {
+      gameState = "dead";
+    }
+
+    if (obs.x + obs.width < 0) {
+      obs.x = canvas.width + Math.random() * 300;
+      obs.y = Math.random() * (canvas.height - 150);
+    }
+  }
+
+  requestAnimationFrame(update);
+}
+
+update();
+</script>
+
 
   ctx.fillStyle = "black";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
