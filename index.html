@@ -45,10 +45,19 @@ document.addEventListener("keydown", e => {
     holding = true;
   }
 
-  if (e.key === "r") {
-    reset();
-  }
-});
+ function reset() {
+  player.y = canvas.height / 2;
+  alive = true;
+
+  // regenerate obstacles
+  obstacles = [];
+  for (let i = 0; i < 20; i++) {
+    obstacles.push({
+      x: 600 + i * 300,
+      y: Math.random() * canvas.height,
+      width: 20,
+      height: 150
+    });
 
 document.addEventListener("keyup", e => {
   if (e.code === "Space") {
@@ -94,7 +103,11 @@ if (player.y + player.size > canvas.height) {
   ctx.fillRect(player.x, player.y, player.size, player.size);
 
   obstacles.forEach(obs => {
+
+  if (alive) {
     obs.x -= speed;
+  }
+
 
     ctx.fillStyle = "red";
     ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
