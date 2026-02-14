@@ -16,148 +16,109 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
+let gameState = "playing";
+
 let player = {
   x: 150,
   y: canvas.height / 2,
-  size: 10,
-  velocity: 0
+  size: 10
 };
 
-let gravity = 0.5;
-let waveForce = -1.5;
-let speed = 6;
-let gameState = "playing"; 
-// possible values: "playing", "dead"
-
+let speed = 4;
 
 let obstacles = [];
-for (let i = 0; i < 20; i++) {
-  obstacles.push({
-    x: 600 + i * 300,
-    y: Math.random() * canvas.height,
-    width: 20,
-    height: 150
-  });
-}
 
-let holding = false;
-
-document.addEventListener("keydown", e => {
-  if (e.code === "Space") {
-    holding = true;
-  }
-
- function reset() {
-  player.y = canvas.height / 2;
-  gameState = "playing";
-
-  // regenerate obstacles
+function generateObstacles() {
   obstacles = [];
   for (let i = 0; i < 20; i++) {
     obstacles.push({
       x: 600 + i * 300,
-      y: Math.random() * canvas.height,
+      y: Math.random() * (canvas.height - 150),
       width: 20,
       height: 150
     });
-
-document.addEventListener("keyup", e => {
-  if (e.code === "Space") {
-    holding = false;
   }
+}
+
+generateObstacles();
+
+let holding = false;
+
+document.addEventListener("keydown", e => {
+  if (e.code === "Space") holding = true;
+  if (e.key === "r") reset();
 });
 
+document.addEventListener("keyup", e => {
+  if (e.code === "Space") holding = false;
+});
 
 function reset() {
-  player.y = canvas.height / 2
-  gameState = true;
+  player.y = canvas.height / 2;
+  gameState = "playing";
+  generateObstacles();
 }
 
 function update() {
+
   ctx.fillStyle = "black";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+  // Freeze screen if dead
   if (gameState === "dead") {
-  ctx.fillStyle = "white";
-  ctx.font = "40px Arial";
-  ctx.fillText("You Died - Press R", canvas.width / 2 - 150, canvas.height / 2);
-  requestAnimationFrame(update);
-  return;
-}
+    ctx.fillStyle = "white";
+    ctx.font = "40px Arial";
+    ctx.fillText("You Died - Press R", canvas.width/2 - 150, canvas.height/2);
+    requestAnimationFrame(update);
+    return;
+  }
 
-// Draw top and bottom borders
-ctx.fillStyle = "white";
-ctx.fillRect(0, 0, canvas.width, 5); // top bar
-ctx.fillRect(0, canvas.height - 5, canvas.width, 5); // bottom bar
-
-if (gameState === "playing")
+  // Movement
   if (holding) {
     player.y -= 3;
   } else {
     player.y += 3;
   }
-}
 
-  // Top border
-if (player.y < 0) {
-  player.y = 0;
-}
+  // Borders
+  if (player.y < 0) player.y = 0;
+  if (player.y + player.size > canvas.height)
+    player.y = canvas.height - player.size;
 
-// Bottom border
-if (player.y + player.size > canvas.height) {
-  player.y = canvas.height - player.size;
-}
+  // Draw borders visually
+  ctx.fillStyle = "white";
+  ctx.fillRect(0, 0, canvas.width, 5);
+  ctx.fillRect(0, canvas.height - 5, canvas.width, 5);
 
-
+  // Draw player
   ctx.fillStyle = "cyan";
   ctx.fillRect(player.x, player.y, player.size, player.size);
 
- obstacles.forEach(obs => {
+  // Obstacles
+  obstacles.forEach(obs => {
 
-  // Move only if alive
-  if (gameState === "playing")
-    obs.x -= currentSpeed || speed;
-  }
-
-  ctx.fillStyle = "red";
-  ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
-
-  // Only check collision if alive
-  if (gameState &&
-      player.x < obs.x + obs.width &&
-      player.x + player.size > obs.x &&
-      player.y < obs.y + obs.height &&
-      player.y + player.size > obs.y
-  ) {
-    gameState = "dead";
-  }
-
-});
-
-
-  if (gameState === "playing")
     obs.x -= speed;
-  }
-
 
     ctx.fillStyle = "red";
     ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
 
+    // Collision
     if (
       player.x < obs.x + obs.width &&
       player.x + player.size > obs.x &&
       player.y < obs.y + obs.height &&
       player.y + player.size > obs.y
     ) {
-     gameState = "dead";
+      gameState = "dead";
     }
-  });
 
-  if (!alive) {
-    ctx.fillStyle = "white";
-    ctx.font = "40px Arial";
-    ctx.fillText("You Died - Press R", canvas.width/2 - 150, canvas.height/2);
-  }
+    // Endless recycle
+    if (obs.x + obs.width < 0) {
+      obs.x = canvas.width + Math.random() * 300;
+      obs.y = Math.random() * (canvas.height - 150);
+    }
+
+  });
 
   requestAnimationFrame(update);
 }
