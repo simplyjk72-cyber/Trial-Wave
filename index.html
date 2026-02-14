@@ -32,6 +32,7 @@ let gameState = "playing";
 let score = 0;
 let speed = 4;
 let holding = false;
+let lastScoreTime = Date.now();
 
 let player = {
   x: 150,
@@ -60,6 +61,7 @@ function reset() {
   score = 0;
   speed = 4;
   gameState = "playing";
+  lastScoreTime = Date.now();
   generateObstacles();
 }
 
@@ -106,8 +108,12 @@ function update() {
     return;
   }
 
-  // Score increases
-  score++;
+  // Timed score: +1 every 0.5 seconds (2 per second)
+  let currentTime = Date.now();
+  if (currentTime - lastScoreTime >= 500) {
+    score += 1;
+    lastScoreTime = currentTime;
+  }
 
   // Slight speed increase
   speed += 0.0003;
@@ -126,7 +132,7 @@ function update() {
   ctx.fillRect(0, 0, canvas.width, 5);
   ctx.fillRect(0, canvas.height - 5, canvas.width, 5);
 
-  // Draw score (TOP LEFT CLEARLY VISIBLE)
+  // Draw score
   ctx.fillStyle = "white";
   ctx.font = "24px Arial";
   ctx.fillText("Score: " + score, 20, 40);
@@ -167,5 +173,3 @@ update();
 
 </body>
 </html>
-
-
