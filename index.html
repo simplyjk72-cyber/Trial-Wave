@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Wave Game</title>
+<title>Real Wave Corridor</title>
 <style>
 body { margin:0; overflow:hidden; background:black; }
 canvas { display:block; }
@@ -21,114 +21,71 @@ function resize(){
 resize();
 window.addEventListener("resize", resize);
 
-let gameState="playing";
-let score=0;
-let highScore=localStorage.getItem("waveHighScore")||0;
-let lastScoreTime=Date.now();
+let gameState = "playing";
+let score = 0;
+let highScore = localStorage.getItem("waveHighScore") || 0;
+let lastScoreTime = Date.now();
 
-let baseSpeed=9; // FASTER
-let speedMultiplier=1;
+let baseSpeed = 10; // FASTER
+let speedMultiplier = 1;
 
-let player={
-  x:200,
-  y:canvas.height/2,
-  size:16
+let player = {
+  x: 200,
+  y: canvas.height / 2,
+  size: 14
 };
 
-let holding=false;
-let obstacles=[];
-let portals=[];
-let spawnX=canvas.width;
+let holding = false;
 
-// --- TRIANGLE COLLISION ---
-function triangleCollision(px,py,size,t){
-  let cx=px+size/2;
-  let cy=py+size/2;
+let segments = [];
+let segmentWidth = 120;
+let gapSize = 120; // tunnel size
+let spawnX = canvas.width;
 
-  let area=Math.abs((t.x2-t.x1)*(t.y3-t.y1)-(t.x3-t.x1)*(t.y2-t.y1));
-  let a1=Math.abs((t.x1-cx)*(t.y2-cy)-(t.x2-cx)*(t.y1-cy));
-  let a2=Math.abs((t.x2-cx)*(t.y3-cy)-(t.x3-cx)*(t.y2-cy));
-  let a3=Math.abs((t.x3-cx)*(t.y1-cy)-(t.x1-cx)*(t.y3-cy));
+// --------- TRIANGLE COLLISION ----------
+function triangleCollision(px, py, size, t) {
+  let cx = px + size / 2;
+  let cy = py + size / 2;
 
-  return Math.abs(area-(a1+a2+a3))<0.5;
+  let area = Math.abs((t.x2 - t.x1)*(t.y3 - t.y1) - (t.x3 - t.x1)*(t.y2 - t.y1));
+  let a1 = Math.abs((t.x1 - cx)*(t.y2 - cy) - (t.x2 - cx)*(t.y1 - cy));
+  let a2 = Math.abs((t.x2 - cx)*(t.y3 - cy) - (t.x3 - cx)*(t.y2 - cy));
+  let a3 = Math.abs((t.x3 - cx)*(t.y1 - cy) - (t.x1 - cx)*(t.y3 - cy));
+
+  return Math.abs(area - (a1 + a2 + a3)) < 0.5;
 }
 
-// --- CONNECTED 🔺🔻 CORRIDOR ---
-function spawnCorridor(){
+// --------- SPAWN CONNECTED ZIGZAG ----------
+function spawnSegment() {
 
-  let segmentWidth=200;
-  let gapSize=120; // TIGHT GAP
+  let centerY = canvas.height / 2;
 
-  let mid=Math.random()*(canvas.height-300)+150;
-
-  // 🔺 top
-  obstacles.push({
-    type:"triangle",
-    x:spawnX,
-    width:segmentWidth,
-    direction:"down",
-    mid:mid,
-    gap:gapSize
+  segments.push({
+    x: spawnX,
+    direction: segments.length % 2 === 0 ? "down" : "up",
+    centerY: centerY
   });
 
-  // 🔻 bottom
-  obstacles.push({
-    type:"triangle",
-    x:spawnX,
-    width:segmentWidth,
-    direction:"up",
-    mid:mid,
-    gap:gapSize
-  });
-
-  spawnX+=segmentWidth;
+  spawnX += segmentWidth;
 }
 
-// Initial world
-for(let i=0;i<10;i++) spawnCorridor();
+for (let i = 0; i < 20; i++) spawnSegment();
 
-// --- PORTALS ---
-function spawnSpeedPortal(){
-  let speeds=[0.5,1,2,3,4];
-  let possible=speeds.filter(s=>s!==speedMultiplier);
-  let value=possible[Math.floor(Math.random()*possible.length)];
-
-  portals.push({
-    x:spawnX,
-    value:value
-  });
-
-  spawnX+=150;
-}
-
-// --- RESET ---
-function reset(){
-  score=0;
-  speedMultiplier=1;
-  player.y=canvas.height/2;
-  lastScoreTime=Date.now();
-  gameState="playing";
-  obstacles=[];
-  portals=[];
-  spawnX=canvas.width;
-  for(let i=0;i<10;i++) spawnCorridor();
-}
-
-// --- INPUT ---
+// -------- INPUT ----------
 function startHold(){ if(gameState==="playing") holding=true; }
 function stopHold(){ holding=false; }
 
-document.addEventListener("keydown",e=>{
+document.addEventListener("keydown", e=>{
   if(["Space","KeyW","ArrowUp"].includes(e.code)) startHold();
-  if(e.key==="r") reset();
+  if(e.key==="r") location.reload();
 });
-document.addEventListener("keyup",e=>{
+document.addEventListener("keyup", e=>{
   if(["Space","KeyW","ArrowUp"].includes(e.code)) stopHold();
 });
-document.addEventListener("mousedown",e=>{ if(e.button===0) startHold(); });
-document.addEventListener("mouseup",e=>{ if(e.button===0) stopHold(); });
+document.addEventListener("mousedown", e=>{ if(e.button===0) startHold(); });
+document.addEventListener("mouseup", e=>{ if(e.button===0) stopHold(); });
 
-// --- UPDATE ---
+// -------- UPDATE ----------
 function update(){
 
   ctx.fillStyle="black";
@@ -137,107 +94,81 @@ function update(){
   if(gameState==="dead"){
     ctx.fillStyle="white";
     ctx.font="40px Arial";
-    ctx.fillText("YOU DIED - PRESS R",canvas.width/2-180,canvas.height/2);
+    ctx.fillText("GIT GUD - PRESS R", canvas.width/2-180, canvas.height/2);
     requestAnimationFrame(update);
     return;
   }
 
-  let now=Date.now();
-  if(now-lastScoreTime>=500){
+  let now = Date.now();
+  if(now - lastScoreTime >= 500){
     score++;
-    lastScoreTime=now;
-
-    if(score%20===0) spawnSpeedPortal();
+    lastScoreTime = now;
   }
 
-  if(score>highScore){
-    highScore=score;
-    localStorage.setItem("waveHighScore",highScore);
+  if(score > highScore){
+    highScore = score;
+    localStorage.setItem("waveHighScore", highScore);
   }
 
-  let speed=baseSpeed*speedMultiplier;
+  let speed = baseSpeed * speedMultiplier;
 
-  // WAVE MOVEMENT (FASTER)
-  if(holding) player.y-=6*speedMultiplier;
-  else player.y+=6*speedMultiplier;
+  // Wave movement (tight & fast)
+  if(holding) player.y -= 7 * speedMultiplier;
+  else player.y += 7 * speedMultiplier;
 
-  // Draw player
   ctx.fillStyle="cyan";
-  ctx.fillRect(player.x,player.y,player.size,player.size);
+  ctx.fillRect(player.x, player.y, player.size, player.size);
 
-  // --- OBSTACLES ---
-  for(let o of obstacles){
-    o.x-=speed;
+  // ----- DRAW CONNECTED TRIANGLES -----
+  for(let s of segments){
+    s.x -= speed;
+
+    let halfGap = gapSize / 2;
+    let center = s.centerY;
 
     let t;
 
-    if(o.direction==="down"){
-      // 🔺 top triangle
-      t={
-        x1:o.x,
-        y1:0,
-        x2:o.x+o.width,
-        y2:0,
-        x3:o.x+o.width/2,
-        y3:o.mid-o.gap/2
+    if(s.direction === "down"){
+      // 🔺
+      t = {
+        x1: s.x,
+        y1: 0,
+        x2: s.x + segmentWidth,
+        y2: 0,
+        x3: s.x + segmentWidth,
+        y3: center - halfGap
       };
     } else {
-      // 🔻 bottom triangle
-      t={
-        x1:o.x,
-        y1:canvas.height,
-        x2:o.x+o.width,
-        y2:canvas.height,
-        x3:o.x+o.width/2,
-        y3:o.mid+o.gap/2
+      // 🔻
+      t = {
+        x1: s.x,
+        y1: canvas.height,
+        x2: s.x + segmentWidth,
+        y2: canvas.height,
+        x3: s.x + segmentWidth,
+        y3: center + halfGap
       };
     }
 
     ctx.fillStyle="orange";
     ctx.beginPath();
-    ctx.moveTo(t.x1,t.y1);
-    ctx.lineTo(t.x2,t.y2);
-    ctx.lineTo(t.x3,t.y3);
+    ctx.moveTo(t.x1, t.y1);
+    ctx.lineTo(t.x2, t.y2);
+    ctx.lineTo(t.x3, t.y3);
     ctx.closePath();
     ctx.fill();
 
-    if(triangleCollision(player.x,player.y,player.size,t))
+    if(triangleCollision(player.x, player.y, player.size, t))
       gameState="dead";
 
-    if(o.x<-300) spawnCorridor();
-  }
-
-  // --- PORTALS ---
-  for(let p of portals){
-    p.x-=speed;
-
-    ctx.fillStyle="cyan";
-    ctx.fillRect(p.x-30,0,60,canvas.height);
-
-    ctx.fillStyle="black";
-    ctx.font="40px Arial";
-
-    let arrows="";
-    if(p.value===0.5) arrows="◀️";
-    if(p.value===1) arrows="▶️";
-    if(p.value===2) arrows="▶️▶️";
-    if(p.value===3) arrows="▶️▶️▶️";
-    if(p.value===4) arrows="▶️▶️▶️▶️";
-
-    ctx.fillText(arrows,p.x-25,canvas.height/2);
-
-    if(player.x+player.size>p.x-30 &&
-       player.x<p.x+30){
-        speedMultiplier=p.value;
-        p.x=-9999;
-    }
+    if(s.x < -segmentWidth) spawnSegment();
   }
 
   // UI
   ctx.fillStyle="white";
   ctx.font="20px Arial";
-  ctx.fillText("Score: "+score,20,40);
-  ctx.fillText("Highscore: "+highScore,150,40);
+  ctx.fillText("Score: "+score, 20, 40);
+  ctx.fillText("Highscore: "+highScore, 150, 40);
 
   requestAnimationFrame(update);
 }
