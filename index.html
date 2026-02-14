@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Real Wave Corridor</title>
+<title>Playable Wave</title>
 <style>
 body { margin:0; overflow:hidden; background:black; }
 canvas { display:block; }
@@ -26,23 +26,24 @@ let score = 0;
 let highScore = localStorage.getItem("waveHighScore") || 0;
 let lastScoreTime = Date.now();
 
-let baseSpeed = 10; // FASTER
+let baseSpeed = 6; // Slower = playable
 let speedMultiplier = 1;
 
 let player = {
   x: 200,
   y: canvas.height / 2,
-  size: 14
+  size: 14,
+  hitbox: 10 // smaller hitbox like GD
 };
 
 let holding = false;
 
 let segments = [];
-let segmentWidth = 120;
-let gapSize = 120; // tunnel size
+let segmentWidth = 140;
+let gapSize = 180; // MUCH BIGGER GAP
 let spawnX = canvas.width;
 
-// --------- TRIANGLE COLLISION ----------
+// -------- GD STYLE HITBOX ----------
 function triangleCollision(px, py, size, t) {
   let cx = px + size / 2;
   let cy = py + size / 2;
@@ -52,24 +53,19 @@ function triangleCollision(px, py, size, t) {
   let a2 = Math.abs((t.x2 - cx)*(t.y3 - cy) - (t.x3 - cx)*(t.y2 - cy));
   let a3 = Math.abs((t.x3 - cx)*(t.y1 - cy) - (t.x1 - cx)*(t.y3 - cy));
 
-  return Math.abs(area - (a1 + a2 + a3)) < 0.5;
+  return Math.abs(area - (a1 + a2 + a3)) < 1;
 }
 
-// --------- SPAWN CONNECTED ZIGZAG ----------
+// -------- SPAWN CONNECTED TRIANGLES ----------
 function spawnSegment() {
-
-  let centerY = canvas.height / 2;
-
   segments.push({
     x: spawnX,
     direction: segments.length % 2 === 0 ? "down" : "up",
-    centerY: centerY
   });
-
   spawnX += segmentWidth;
 }
 
-for (let i = 0; i < 20; i++) spawnSegment();
+for (let i = 0; i < 15; i++) spawnSegment();
 
 // -------- INPUT ----------
 function startHold(){ if(gameState==="playing") holding=true; }
@@ -99,10 +95,19 @@ function update(){
     return;
   }
 
+  // Score every 0.5s
   let now = Date.now();
   if(now - lastScoreTime >= 500){
     score++;
     lastScoreTime = now;
+
+    // Gradual difficulty increase
+    if(score % 20 === 0 && gapSize > 110){
+      gapSize -= 10; // slowly tighter
+    }
+    if(score % 30 === 0){
+      speedMultiplier += 0.1;
+    }
   }
 
   if(score > highScore){
@@ -112,24 +117,24 @@ function update(){
 
   let speed = baseSpeed * speedMultiplier;
 
-  // Wave movement (tight & fast)
-  if(holding) player.y -= 7 * speedMultiplier;
-  else player.y += 7 * speedMultiplier;
+  // REAL WAVE FEEL (constant diagonal speed)
+  let waveSpeed = 5 * speedMultiplier;
+
+  if(holding) player.y -= waveSpeed;
+  else player.y += waveSpeed;
 
   ctx.fillStyle="cyan";
   ctx.fillRect(player.x, player.y, player.size, player.size);
 
-  // ----- DRAW CONNECTED TRIANGLES -----
   for(let s of segments){
     s.x -= speed;
 
+    let center = canvas.height / 2;
     let halfGap = gapSize / 2;
-    let center = s.centerY;
 
     let t;
 
     if(s.direction === "down"){
-      // 🔺
       t = {
         x1: s.x,
         y1: 0,
@@ -139,7 +144,6 @@ function update(){
         y3: center - halfGap
       };
     } else {
-      // 🔻
       t = {
         x1: s.x,
         y1: canvas.height,
@@ -158,13 +162,12 @@ function update(){
     ctx.closePath();
     ctx.fill();
 
-    if(triangleCollision(player.x, player.y, player.size, t))
+    if(triangleCollision(player.x + 2, player.y + 2, player.hitbox, t))
       gameState="dead";
 
     if(s.x < -segmentWidth) spawnSegment();
   }
 
-  // UI
   ctx.fillStyle="white";
   ctx.font="20px Arial";
   ctx.fillText("Score: "+score, 20, 40);
@@ -174,6 +177,10 @@ function update(){
 }
 
 update();
+</script>
+</body>
+</html>
+
 </script>
 </body>
 </html>
