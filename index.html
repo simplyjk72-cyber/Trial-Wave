@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Wave Game</title>
-  <style>
-    body { margin:0; overflow:hidden; background:black; }
-    canvas { display:block; }
-  </style>
+<title>Wave Game</title>
+<style>
+body { margin:0; overflow:hidden; background:black; }
+canvas { display:block; }
+</style>
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -21,81 +21,84 @@ function resize(){
 resize();
 window.addEventListener("resize", resize);
 
-let gameState = "playing";
-let score = 0;
-let highScore = localStorage.getItem("waveHighScore") || 0;
-let lastScoreTime = Date.now();
+let gameState="playing";
+let score=0;
+let highScore=localStorage.getItem("waveHighScore")||0;
+let lastScoreTime=Date.now();
 
-let baseSpeed = 4;
-let speedMultiplier = 1;
-let speedLevels = [0.5,1,2,3,4];
+let baseSpeed=4;
+let speedMultiplier=1;
+let speedLevels=[0.5,1,2,3,4];
 
-let player = {
+let player={
   x:150,
   y:canvas.height/2,
-  size:16,
   normalSize:16,
   miniSize:8,
+  size:16,
   isMini:false
 };
 
-let holding = false;
-let borderTime = 0;
+let holding=false;
+let borderTime=0;
 
 let obstacles=[];
-let ramps=[];
-let spikes=[];
 let portals=[];
+let spawnX=canvas.width;
 
-function generateBase(){
-  obstacles=[];
-  ramps=[];
-  spikes=[];
-  portals=[];
+function spawnChunk(){
 
-  for(let i=0;i<10;i++){
-    obstacles.push({
-      x:canvas.width + i*500,
-      y:Math.random()*(canvas.height-300),
-      width:30,
-      height:220
-    });
+  // Always spawn obstacle
+  obstacles.push({
+    type:"block",
+    x:spawnX,
+    y:Math.random()*(canvas.height-250),
+    width:30,
+    height:200
+  });
 
-    ramps.push({
-      x:canvas.width + 300 + i*800,
-      y:canvas.height-5,
-      width:120,
-      height:120
-    });
+  // Alternating ramps
+  let up = Math.random()<0.5;
+  obstacles.push({
+    type:"ramp",
+    x:spawnX+150,
+    width:140,
+    height:140,
+    direction:up?"up":"down"
+  });
 
-    spikes.push({
-      x:canvas.width + 200 + i*400,
-      y:canvas.height-5,
-      size:30
-    });
-  }
+  // Spikes
+  obstacles.push({
+    type:"spike",
+    x:spawnX+300,
+    size:35,
+    y:canvas.height-5
+  });
+
+  spawnX+=500;
 }
 
-generateBase();
+for(let i=0;i<8;i++) spawnChunk();
 
 function spawnPortal(){
-  let type = Math.random()<0.5 ? "speed":"size";
+  let type=Math.random()<0.5?"speed":"size";
 
-  let portal = {
-    x:canvas.width + 300,
-    y:canvas.height/2 - 40,
-    size:40,
+  let portal={
+    x:spawnX,
+    width:40,
+    height:canvas.height,
     type:type
   };
 
   if(type==="speed"){
-    let possible = speedLevels.filter(s=>s!==speedMultiplier);
-    portal.value = possible[Math.floor(Math.random()*possible.length)];
+    let possible=speedLevels.filter(s=>s!==speedMultiplier);
+    portal.value=possible[Math.floor(Math.random()*possible.length)];
   }else{
-    portal.value = player.isMini ? "normal":"mini";
+    portal.value=player.isMini?"normal":"mini";
   }
 
   portals.push(portal);
+  spawnX+=200;
 }
 
 function reset(){
@@ -107,7 +110,10 @@ function reset(){
   lastScoreTime=Date.now();
   borderTime=0;
   gameState="playing";
-  generateBase();
+  obstacles=[];
+  portals=[];
+  spawnX=canvas.width;
+  for(let i=0;i<8;i++) spawnChunk();
 }
 
 function startHold(){ if(gameState==="playing") holding=true; }
@@ -148,10 +154,7 @@ function update(){
   if(now-lastScoreTime>=500){
     score++;
     lastScoreTime=now;
-
-    if(score%50===0){
-      spawnPortal();
-    }
+    if(score%50===0) spawnPortal();
   }
 
   if(score>highScore){
@@ -161,12 +164,13 @@ function update(){
 
   let speed=baseSpeed*speedMultiplier;
 
-  if(holding) player.y-=3;
-  else player.y+=3;
+  // Y movement scales with speed
+  if(holding) player.y-=3*speedMultiplier;
+  else player.y+=3*speedMultiplier;
 
-  if(player.y<=5 || player.y+player.size>=canvas.height-5){
+  if(player.y<=5||player.y+player.size>=canvas.height-5){
     borderTime++;
-    if(borderTime>60) gameState="dead";
+    if(borderTime>40) gameState="dead";
   }else borderTime=0;
 
   if(player.y<5) player.y=5;
@@ -186,69 +190,76 @@ function update(){
 
   for(let o of obstacles){
     o.x-=speed;
-    ctx.fillStyle="red";
-    ctx.fillRect(o.x,o.y,o.width,o.height);
-    if(rectCollision(player,o)) gameState="dead";
+
+    if(o.type==="block"){
+      ctx.fillStyle="red";
+      ctx.fillRect(o.x,o.y,o.width,o.height);
+      if(rectCollision(player,o)) gameState="dead";
+    }
+
+    if(o.type==="ramp"){
+      ctx.fillStyle="orange";
+      ctx.beginPath();
+      if(o.direction==="up"){
+        ctx.moveTo(o.x,canvas.height-5);
+        ctx.lineTo(o.x+o.width,canvas.height-5);
+        ctx.lineTo(o.x+o.width,canvas.height-5-o.height);
+      }else{
+        ctx.moveTo(o.x,5);
+        ctx.lineTo(o.x+o.width,5);
+        ctx.lineTo(o.x+o.width,5+o.height);
+      }
+      ctx.closePath();
+      ctx.fill();
+
+      if(player.x+player.size>o.x &&
+         player.x<o.x+o.width){
+           gameState="dead";
+      }
+    }
+
+    if(o.type==="spike"){
+      ctx.fillStyle="yellow";
+      ctx.beginPath();
+      ctx.moveTo(o.x,o.y);
+      ctx.lineTo(o.x+o.size/2,o.y-o.size);
+      ctx.lineTo(o.x+o.size,o.y);
+      ctx.closePath();
+      ctx.fill();
+
+      if(player.x+player.size>o.x &&
+         player.x<o.x+o.size &&
+         player.y+player.size>o.y-o.size)
+         gameState="dead";
+    }
+
+    if(o.x<-300) spawnChunk();
   }
 
-  for(let r of ramps){
-    r.x-=speed;
-    ctx.fillStyle="orange";
-    ctx.beginPath();
-    ctx.moveTo(r.x,r.y);
-    ctx.lineTo(r.x+r.width,r.y);
-    ctx.lineTo(r.x+r.width,r.y-r.height);
-    ctx.closePath();
-    ctx.fill();
-
-    if(
-      player.x+player.size>r.x &&
-      player.x<r.x+r.width &&
-      player.y+player.size>r.y-r.height
-    ) gameState="dead";
-  }
-
-  for(let s of spikes){
-    s.x-=speed;
-    ctx.fillStyle="yellow";
-    ctx.beginPath();
-    ctx.moveTo(s.x,s.y);
-    ctx.lineTo(s.x+s.size/2,s.y-s.size);
-    ctx.lineTo(s.x+s.size,s.y);
-    ctx.closePath();
-    ctx.fill();
-
-    if(
-      player.x+player.size>s.x &&
-      player.x<s.x+s.size &&
-      player.y+player.size>s.y-s.size
-    ) gameState="dead";
-  }
-
+  // PORTALS (full vertical, unskippable)
   for(let p of portals){
     p.x-=speed;
 
-    ctx.fillStyle= p.type==="speed" ? "blue":"purple";
-    ctx.fillRect(p.x,p.y,p.size,p.size);
+    ctx.beginPath();
+    ctx.strokeStyle = p.type==="speed" ? "cyan":"magenta";
+    ctx.lineWidth=6;
+    ctx.arc(p.x,canvas.height/2,80,0,Math.PI*2);
+    ctx.stroke();
 
-    if(
-      player.x<p.x+p.size &&
-      player.x+player.size>p.x &&
-      player.y<p.y+p.size &&
-      player.y+player.size>p.y
-    ){
-      if(p.type==="speed"){
-        speedMultiplier=p.value;
-      }else{
-        if(p.value==="mini"){
-          player.isMini=true;
-          player.size=player.miniSize;
-        }else{
-          player.isMini=false;
-          player.size=player.normalSize;
-        }
-      }
-      p.x=canvas.width+2000;
+    if(player.x+player.size>p.x-40 &&
+       player.x<p.x+40){
+         if(p.type==="speed"){
+           speedMultiplier=p.value;
+         }else{
+           if(p.value==="mini"){
+             player.isMini=true;
+             player.size=player.miniSize;
+           }else{
+             player.isMini=false;
+             player.size=player.normalSize;
+           }
+         }
+         p.x=-9999;
     }
   }
 
