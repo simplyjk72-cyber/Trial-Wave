@@ -3,19 +3,18 @@
 <head>
   <title>Wave Game</title>
   <style>
-    body { margin: 0; overflow: hidden; background: black; }
-    canvas { display: block; }
+    body { margin:0; overflow:hidden; background:black; }
+    canvas { display:block; }
   </style>
 </head>
 <body>
-
 <canvas id="game"></canvas>
 
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-function resize() {
+function resize(){
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
 }
@@ -25,209 +24,232 @@ window.addEventListener("resize", resize);
 let gameState = "playing";
 let score = 0;
 let highScore = localStorage.getItem("waveHighScore") || 0;
-let speed = 4;
-let holding = false;
 let lastScoreTime = Date.now();
-let borderTime = 0;
+
+let baseSpeed = 4;
+let speedMultiplier = 1;
+let speedLevels = [0.5,1,2,3,4];
 
 let player = {
-  x: 150,
-  y: canvas.height / 2,
-  size: 12
+  x:150,
+  y:canvas.height/2,
+  size:16,
+  normalSize:16,
+  miniSize:8,
+  isMini:false
 };
 
-let obstacles = [];
-let slopes = [];
-let portals = [];
+let holding = false;
+let borderTime = 0;
 
-function generateLevel() {
-  obstacles = [];
-  slopes = [];
-  portals = [];
+let obstacles=[];
+let ramps=[];
+let spikes=[];
+let portals=[];
 
-  for (let i = 0; i < 15; i++) {
+function generateBase(){
+  obstacles=[];
+  ramps=[];
+  spikes=[];
+  portals=[];
+
+  for(let i=0;i<10;i++){
     obstacles.push({
-      x: canvas.width + i * 400,
-      y: Math.random() * (canvas.height - 250),
-      width: 20,
-      height: 180
+      x:canvas.width + i*500,
+      y:Math.random()*(canvas.height-300),
+      width:30,
+      height:220
     });
 
-    slopes.push({
-      x: canvas.width + 200 + i * 600,
-      y: canvas.height - 5,
-      size: 40,
-      direction: "up"
+    ramps.push({
+      x:canvas.width + 300 + i*800,
+      y:canvas.height-5,
+      width:120,
+      height:120
     });
 
-    portals.push({
-      x: canvas.width + 500 + i * 1200,
-      y: canvas.height / 2 - 40,
-      size: 40
+    spikes.push({
+      x:canvas.width + 200 + i*400,
+      y:canvas.height-5,
+      size:30
     });
   }
 }
 
-generateLevel();
+generateBase();
 
-function reset() {
-  player.y = canvas.height / 2;
-  score = 0;
-  speed = 4;
-  borderTime = 0;
-  gameState = "playing";
-  lastScoreTime = Date.now();
-  generateLevel();
+function spawnPortal(){
+  let type = Math.random()<0.5 ? "speed":"size";
+
+  let portal = {
+    x:canvas.width + 300,
+    y:canvas.height/2 - 40,
+    size:40,
+    type:type
+  };
+
+  if(type==="speed"){
+    let possible = speedLevels.filter(s=>s!==speedMultiplier);
+    portal.value = possible[Math.floor(Math.random()*possible.length)];
+  }else{
+    portal.value = player.isMini ? "normal":"mini";
+  }
+
+  portals.push(portal);
 }
 
-function startHold() {
-  if (gameState === "playing") holding = true;
-}
-function stopHold() {
-  holding = false;
+function reset(){
+  score=0;
+  speedMultiplier=1;
+  player.isMini=false;
+  player.size=player.normalSize;
+  player.y=canvas.height/2;
+  lastScoreTime=Date.now();
+  borderTime=0;
+  gameState="playing";
+  generateBase();
 }
 
-document.addEventListener("keydown", e => {
-  if (["Space","KeyW","ArrowUp"].includes(e.code)) startHold();
-  if (e.key === "r") reset();
-});
-document.addEventListener("keyup", e => {
-  if (["Space","KeyW","ArrowUp"].includes(e.code)) stopHold();
-});
-document.addEventListener("mousedown", e => {
-  if (e.button === 0) startHold();
-});
-document.addEventListener("mouseup", e => {
-  if (e.button === 0) stopHold();
-});
+function startHold(){ if(gameState==="playing") holding=true; }
+function stopHold(){ holding=false; }
 
-function triangleCollision(px, py, size, tx, ty, tsize) {
-  return (
-    px < tx + tsize &&
-    px + size > tx &&
-    py + size > ty - tsize
+document.addEventListener("keydown",e=>{
+  if(["Space","KeyW","ArrowUp"].includes(e.code)) startHold();
+  if(e.key==="r") reset();
+});
+document.addEventListener("keyup",e=>{
+  if(["Space","KeyW","ArrowUp"].includes(e.code)) stopHold();
+});
+document.addEventListener("mousedown",e=>{ if(e.button===0) startHold(); });
+document.addEventListener("mouseup",e=>{ if(e.button===0) stopHold(); });
+
+function rectCollision(a,b){
+  return(
+    a.x < b.x + b.width &&
+    a.x + a.size > b.x &&
+    a.y < b.y + b.height &&
+    a.y + a.size > b.y
   );
 }
 
-function update() {
+function update(){
+  ctx.fillStyle="black";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  ctx.fillStyle = "black";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  if (gameState === "dead") {
-    ctx.fillStyle = "white";
-    ctx.font = "40px Arial";
-    ctx.fillText("You Died - Press R", canvas.width/2 - 170, canvas.height/2);
-
-    ctx.font = "20px Arial";
-    ctx.fillText("Score: " + score, canvas.width/2 - 40, canvas.height/2 + 40);
-
+  if(gameState==="dead"){
+    ctx.fillStyle="white";
+    ctx.font="40px Arial";
+    ctx.fillText("You Died - Press R",canvas.width/2-170,canvas.height/2);
     requestAnimationFrame(update);
     return;
   }
 
-  // Score timing (2 per second)
-  let currentTime = Date.now();
-  if (currentTime - lastScoreTime >= 500) {
+  let now=Date.now();
+  if(now-lastScoreTime>=500){
     score++;
-    lastScoreTime = currentTime;
-  }
+    lastScoreTime=now;
 
-  if (score > highScore) {
-    highScore = score;
-    localStorage.setItem("waveHighScore", highScore);
-  }
-
-  speed += 0.0005;
-
-  // Movement
-  if (holding) player.y -= 3;
-  else player.y += 3;
-
-  // Border camping punishment
-  if (player.y <= 5 || player.y + player.size >= canvas.height - 5) {
-    borderTime++;
-    if (borderTime > 60) gameState = "dead";
-  } else {
-    borderTime = 0;
-  }
-
-  if (player.y < 5) player.y = 5;
-  if (player.y + player.size > canvas.height - 5)
-    player.y = canvas.height - player.size - 5;
-
-  // Borders
-  ctx.fillStyle = "white";
-  ctx.fillRect(0, 0, canvas.width, 5);
-  ctx.fillRect(0, canvas.height - 5, canvas.width, 5);
-
-  // Score display
-  ctx.fillStyle = "white";
-  ctx.font = "20px Arial";
-  ctx.fillText("Score: " + score, 20, 40);
-  ctx.fillText("Highscore: " + highScore, 160, 40);
-
-  // Player
-  ctx.fillStyle = "cyan";
-  ctx.fillRect(player.x, player.y, player.size, player.size);
-
-  // Obstacles
-  for (let obs of obstacles) {
-    obs.x -= speed;
-    ctx.fillStyle = "red";
-    ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
-
-    if (
-      player.x < obs.x + obs.width &&
-      player.x + player.size > obs.x &&
-      player.y < obs.y + obs.height &&
-      player.y + player.size > obs.y
-    ) gameState = "dead";
-
-    if (obs.x + obs.width < 0) {
-      obs.x = canvas.width + Math.random() * 400;
-      obs.y = Math.random() * (canvas.height - 250);
+    if(score%50===0){
+      spawnPortal();
     }
   }
 
-  // Slopes (triangles)
-  for (let s of slopes) {
-    s.x -= speed;
+  if(score>highScore){
+    highScore=score;
+    localStorage.setItem("waveHighScore",highScore);
+  }
 
-    ctx.fillStyle = "orange";
+  let speed=baseSpeed*speedMultiplier;
+
+  if(holding) player.y-=3;
+  else player.y+=3;
+
+  if(player.y<=5 || player.y+player.size>=canvas.height-5){
+    borderTime++;
+    if(borderTime>60) gameState="dead";
+  }else borderTime=0;
+
+  if(player.y<5) player.y=5;
+  if(player.y+player.size>canvas.height-5)
+    player.y=canvas.height-player.size-5;
+
+  ctx.fillStyle="white";
+  ctx.fillRect(0,0,canvas.width,5);
+  ctx.fillRect(0,canvas.height-5,canvas.width,5);
+
+  ctx.font="20px Arial";
+  ctx.fillText("Score: "+score,20,40);
+  ctx.fillText("Highscore: "+highScore,160,40);
+
+  ctx.fillStyle="cyan";
+  ctx.fillRect(player.x,player.y,player.size,player.size);
+
+  for(let o of obstacles){
+    o.x-=speed;
+    ctx.fillStyle="red";
+    ctx.fillRect(o.x,o.y,o.width,o.height);
+    if(rectCollision(player,o)) gameState="dead";
+  }
+
+  for(let r of ramps){
+    r.x-=speed;
+    ctx.fillStyle="orange";
     ctx.beginPath();
-    ctx.moveTo(s.x, s.y);
-    ctx.lineTo(s.x + s.size, s.y);
-    ctx.lineTo(s.x + s.size, s.y - s.size);
+    ctx.moveTo(r.x,r.y);
+    ctx.lineTo(r.x+r.width,r.y);
+    ctx.lineTo(r.x+r.width,r.y-r.height);
     ctx.closePath();
     ctx.fill();
 
-    if (triangleCollision(player.x, player.y, player.size, s.x, s.y, s.size))
-      gameState = "dead";
-
-    if (s.x + s.size < 0)
-      s.x = canvas.width + Math.random() * 800;
+    if(
+      player.x+player.size>r.x &&
+      player.x<r.x+r.width &&
+      player.y+player.size>r.y-r.height
+    ) gameState="dead";
   }
 
-  // Portals (speed boost)
-  for (let p of portals) {
-    p.x -= speed;
+  for(let s of spikes){
+    s.x-=speed;
+    ctx.fillStyle="yellow";
+    ctx.beginPath();
+    ctx.moveTo(s.x,s.y);
+    ctx.lineTo(s.x+s.size/2,s.y-s.size);
+    ctx.lineTo(s.x+s.size,s.y);
+    ctx.closePath();
+    ctx.fill();
 
-    ctx.fillStyle = "blue";
-    ctx.fillRect(p.x, p.y, p.size, p.size);
+    if(
+      player.x+player.size>s.x &&
+      player.x<s.x+s.size &&
+      player.y+player.size>s.y-s.size
+    ) gameState="dead";
+  }
 
-    if (
-      player.x < p.x + p.size &&
-      player.x + player.size > p.x &&
-      player.y < p.y + p.size &&
-      player.y + player.size > p.y
-    ) {
-      speed += 2;
-      p.x = canvas.width + 2000;
+  for(let p of portals){
+    p.x-=speed;
+
+    ctx.fillStyle= p.type==="speed" ? "blue":"purple";
+    ctx.fillRect(p.x,p.y,p.size,p.size);
+
+    if(
+      player.x<p.x+p.size &&
+      player.x+player.size>p.x &&
+      player.y<p.y+p.size &&
+      player.y+player.size>p.y
+    ){
+      if(p.type==="speed"){
+        speedMultiplier=p.value;
+      }else{
+        if(p.value==="mini"){
+          player.isMini=true;
+          player.size=player.miniSize;
+        }else{
+          player.isMini=false;
+          player.size=player.normalSize;
+        }
+      }
+      p.x=canvas.width+2000;
     }
-
-    if (p.x + p.size < 0)
-      p.x = canvas.width + Math.random() * 2000;
   }
 
   requestAnimationFrame(update);
@@ -235,6 +257,5 @@ function update() {
 
 update();
 </script>
-
 </body>
 </html>
