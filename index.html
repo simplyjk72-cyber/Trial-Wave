@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Mini Wave - INSANE</title>
+<title>Forced Insane Mini Wave</title>
 <style>
 body { margin:0; overflow:hidden; background:black; }
 canvas { display:block; }
@@ -23,29 +23,25 @@ window.addEventListener("resize", resize);
 
 let gameState = "playing";
 let score = 0;
-let highScore = localStorage.getItem("miniWaveHighScore") || 0;
-let lastScoreTime = Date.now();
 
-// HARD SETTINGS
-let baseSpeed = 11;          // fast immediately
-let speedMultiplier = 1;
-
+let baseSpeed = 14;         // MUCH FASTER
 let player = {
   x: 180,
   y: canvas.height/2,
-  size: 8,                  // MINI WAVE
-  hitbox: 6
+  size: 7,                 // smaller mini
+  hitbox: 5
 };
 
 let holding = false;
 
 let segments = [];
-let segmentWidth = 60;       // tighter turns
-let gapSize = 90;            // hard start
+let segmentWidth = 45;      // short = rapid turns
+let gapSize = 70;           // tight start
 let spawnX = canvas.width;
 let lastCenterY = canvas.height/2;
+let direction = 1;          // forces alternating pattern
 
-// -------- COLLISION --------
+// ---- COLLISION ----
 function lineCollision(px, py, size, x1, y1, x2, y2){
   let cx = px + size/2;
   let cy = py + size/2;
@@ -67,14 +63,17 @@ function lineCollision(px, py, size, x1, y1, x2, y2){
   return distance < player.hitbox/2;
 }
 
-// -------- SPAWN --------
+// ---- FORCED ALTERNATING SPAWN ----
 function spawnSegment(){
 
-  // stronger vertical shifts = harder
-  let shift = (Math.random()*200 - 100);
+  // FORCE big vertical move each time
+  let shift = direction * 120;
+
   let centerY = lastCenterY + shift;
 
-  centerY = Math.max(100, Math.min(canvas.height-100, centerY));
+  // clamp inside borders
+  if(centerY < 120) centerY = 120;
+  if(centerY > canvas.height-120) centerY = canvas.height-120;
 
   let top = centerY - gapSize/2;
   let bottom = centerY + gapSize/2;
@@ -89,11 +88,14 @@ function spawnSegment(){
 
   lastCenterY = centerY;
   spawnX += segmentWidth;
+
+  // flip direction every segment → no skipping
+  direction *= -1;
 }
 
-for(let i=0;i<30;i++) spawnSegment();
+for(let i=0;i<40;i++) spawnSegment();
 
-// -------- INPUT --------
+// ---- INPUT ----
 function startHold(){ if(gameState==="playing") holding=true; }
 function stopHold(){ holding=false; }
 
@@ -107,7 +109,7 @@ document.addEventListener("keyup", e=>{
 document.addEventListener("mousedown", e=>{ if(e.button===0) startHold(); });
 document.addEventListener("mouseup", e=>{ if(e.button===0) stopHold(); });
 
-// -------- UPDATE --------
+// ---- UPDATE ----
 function update(){
 
   ctx.fillStyle="black";
@@ -116,40 +118,20 @@ function update(){
   if(gameState==="dead"){
     ctx.fillStyle="white";
     ctx.font="40px Arial";
-    ctx.fillText("MINI INSANE - PRESS R", canvas.width/2-220, canvas.height/2);
+    ctx.fillText("INSANE - PRESS R", canvas.width/2-180, canvas.height/2);
     requestAnimationFrame(update);
     return;
   }
 
-  // SCALING (FAST)
-  let now = Date.now();
-  if(now-lastScoreTime >= 400){
-    score++;
-    lastScoreTime = now;
+  score++;
 
-    // shrink gap aggressively
-    if(score % 6 === 0 && gapSize > 55){
-      gapSize -= 5;
-    }
-
-    // increase speed more often
-    if(score % 8 === 0){
-      speedMultiplier += 0.15;
-    }
-  }
-
-  if(score > highScore){
-    highScore = score;
-    localStorage.setItem("miniWaveHighScore", highScore);
-  }
-
-  let speed = baseSpeed * speedMultiplier;
-  let waveSpeed = 7.5 * speedMultiplier;
+  let speed = baseSpeed;
+  let waveSpeed = 9;    // aggressive movement
 
   if(holding) player.y -= waveSpeed;
   else player.y += waveSpeed;
 
-  // Visible borders
+  // borders
   ctx.fillStyle="red";
   ctx.fillRect(0,0,canvas.width,6);
   ctx.fillRect(0,canvas.height-6,canvas.width,6);
@@ -158,7 +140,7 @@ function update(){
     gameState = "dead";
   }
 
-  // Player
+  // player
   ctx.fillStyle="cyan";
   ctx.fillRect(player.x, player.y, player.size, player.size);
 
@@ -197,11 +179,6 @@ function update(){
       spawnSegment();
     }
   }
-
-  ctx.fillStyle="white";
-  ctx.font="20px Arial";
-  ctx.fillText("Score: "+score, 20, 40);
-  ctx.fillText("Highscore: "+highScore, 150, 40);
 
   requestAnimationFrame(update);
 }
