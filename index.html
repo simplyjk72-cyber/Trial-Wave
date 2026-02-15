@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Real ZigZag Wave</title>
+<title>INSANE DEMON WAVE</title>
 <style>
 body { margin:0; overflow:hidden; background:black; }
 canvas { display:block; }
@@ -26,65 +26,73 @@ let score = 0;
 let highScore = localStorage.getItem("waveHighScore") || 0;
 let lastScoreTime = Date.now();
 
-let baseSpeed = 8; // harder
+let baseSpeed = 12;
 let speedMultiplier = 1;
 
 let player = {
   x: 200,
   y: canvas.height/2,
   size: 14,
-  hitbox: 10
+  hitbox: 9
 };
 
 let holding = false;
 
 let segments = [];
-let segmentWidth = 80; // smaller = harder
-let gapSize = 140;     // tighter gap
+let segmentWidth = 70;
+let gapSize = 110;
 let spawnX = canvas.width;
 let lastCenterY = canvas.height/2;
 
-// ------- TRIANGLE COLLISION --------
-function triangleCollision(px, py, size, t){
+// ---- Line Collision ----
+function lineCollision(px, py, size, x1, y1, x2, y2){
   let cx = px + size/2;
   let cy = py + size/2;
 
-  let area = Math.abs((t.x2-t.x1)*(t.y3-t.y1)-(t.x3-t.x1)*(t.y2-t.y1));
-  let a1 = Math.abs((t.x1-cx)*(t.y2-cy)-(t.x2-cx)*(t.y1-cy));
-  let a2 = Math.abs((t.x2-cx)*(t.y3-cy)-(t.x3-cx)*(t.y2-cy));
-  let a3 = Math.abs((t.x3-cx)*(t.y1-cy)-(t.x1-cx)*(t.y3-cy));
+  let dx = x2 - x1;
+  let dy = y2 - y1;
+  let length = Math.sqrt(dx*dx + dy*dy);
 
-  return Math.abs(area-(a1+a2+a3)) < 0.5;
+  let dot = ((cx-x1)*dx + (cy-y1)*dy) / (length*length);
+  dot = Math.max(0, Math.min(1, dot));
+
+  let closestX = x1 + dot*dx;
+  let closestY = y1 + dot*dy;
+
+  let distX = cx - closestX;
+  let distY = cy - closestY;
+  let distance = Math.sqrt(distX*distX + distY*distY);
+
+  return distance < player.hitbox/2;
 }
 
-// ------- SPAWN TRUE 🔺🔻 CONNECTED --------
+// ---- Spawn Connected Slopes ----
 function spawnSegment(){
 
-  // random vertical movement
-  let change = (Math.random()*120 - 60);
-  let centerY = lastCenterY + change;
+  let shift = (Math.random()*180 - 90);
+  let centerY = lastCenterY + shift;
 
-  // clamp inside screen
-  centerY = Math.max(150, Math.min(canvas.height-150, centerY));
+  // keep playable but still hard
+  centerY = Math.max(80, Math.min(canvas.height-80, centerY));
 
-  let topY = centerY - gapSize/2;
-  let bottomY = centerY + gapSize/2;
+  let top = centerY - gapSize/2;
+  let bottom = centerY + gapSize/2;
 
   segments.push({
     x: spawnX,
-    topY: topY,
-    bottomY: bottomY,
-    prevTopY: lastCenterY - gapSize/2,
-    prevBottomY: lastCenterY + gapSize/2
+    prevTop: lastCenterY - gapSize/2,
+    prevBottom: lastCenterY + gapSize/2,
+    top: top,
+    bottom: bottom
   });
 
   lastCenterY = centerY;
   spawnX += segmentWidth;
 }
 
-for(let i=0;i<20;i++) spawnSegment();
+for(let i=0;i<30;i++) spawnSegment();
 
-// -------- INPUT --------
+// ---- Input ----
 function startHold(){ if(gameState==="playing") holding=true; }
 function stopHold(){ holding=false; }
 
@@ -98,7 +106,7 @@ document.addEventListener("keyup", e=>{
 document.addEventListener("mousedown", e=>{ if(e.button===0) startHold(); });
 document.addEventListener("mouseup", e=>{ if(e.button===0) stopHold(); });
 
-// -------- UPDATE --------
+// ---- Update Loop ----
 function update(){
 
   ctx.fillStyle="black";
@@ -107,23 +115,22 @@ function update(){
   if(gameState==="dead"){
     ctx.fillStyle="white";
     ctx.font="40px Arial";
-    ctx.fillText("YOU DIED - PRESS R", canvas.width/2-180, canvas.height/2);
+    ctx.fillText("INSANE DEMON - PRESS R", canvas.width/2-200, canvas.height/2);
     requestAnimationFrame(update);
     return;
   }
 
-  // score every 0.5s
+  // score
   let now = Date.now();
   if(now-lastScoreTime >= 500){
     score++;
     lastScoreTime = now;
 
-    // harder over time
-    if(score % 15 === 0 && gapSize > 100){
-      gapSize -= 8;
+    if(score % 10 === 0 && gapSize > 70){
+      gapSize -= 4;
     }
-    if(score % 25 === 0){
-      speedMultiplier += 0.15;
+    if(score % 15 === 0){
+      speedMultiplier += 0.1;
     }
   }
 
@@ -133,11 +140,15 @@ function update(){
   }
 
   let speed = baseSpeed * speedMultiplier;
+  let waveSpeed = 7 * speedMultiplier;
 
-  // wave movement (45° feel)
-  let waveSpeed = 6 * speedMultiplier;
   if(holding) player.y -= waveSpeed;
   else player.y += waveSpeed;
+
+  // ---- Invisible vertical death bounds ----
+  if(player.y < 0 || player.y + player.size > canvas.height){
+    gameState = "dead";
+  }
 
   ctx.fillStyle="cyan";
   ctx.fillRect(player.x, player.y, player.size, player.size);
@@ -146,44 +157,33 @@ function update(){
 
     s.x -= speed;
 
-    // ----- DRAW CONNECTED TOP SLOPE (🔺 /) -----
-    let topTriangle = {
-      x1: s.x,
-      y1: s.prevTopY,
-      x2: s.x + segmentWidth,
-      y2: s.topY,
-      x3: s.x,
-      y3: 0
-    };
-
-    ctx.fillStyle="orange";
+    // Draw top slope
+    ctx.strokeStyle="orange";
+    ctx.lineWidth=4;
     ctx.beginPath();
-    ctx.moveTo(topTriangle.x1, topTriangle.y1);
-    ctx.lineTo(topTriangle.x2, topTriangle.y2);
-    ctx.lineTo(topTriangle.x3, topTriangle.y3);
-    ctx.closePath();
-    ctx.fill();
+    ctx.moveTo(s.x, s.prevTop);
+    ctx.lineTo(s.x + segmentWidth, s.top);
+    ctx.stroke();
 
-    // ----- DRAW CONNECTED BOTTOM SLOPE (🔻 \) -----
-    let bottomTriangle = {
-      x1: s.x,
-      y1: s.prevBottomY,
-      x2: s.x + segmentWidth,
-      y2: s.bottomY,
-      x3: s.x,
-      y3: canvas.height
-    };
-
+    // Draw bottom slope
     ctx.beginPath();
-    ctx.moveTo(bottomTriangle.x1, bottomTriangle.y1);
-    ctx.lineTo(bottomTriangle.x2, bottomTriangle.y2);
-    ctx.lineTo(bottomTriangle.x3, bottomTriangle.y3);
-    ctx.closePath();
-    ctx.fill();
+    ctx.moveTo(s.x, s.prevBottom);
+    ctx.lineTo(s.x + segmentWidth, s.bottom);
+    ctx.stroke();
 
-    if(triangleCollision(player.x+2, player.y+2, player.hitbox, topTriangle) ||
-       triangleCollision(player.x+2, player.y+2, player.hitbox, bottomTriangle))
-       gameState="dead";
+    // Collision
+    if(
+      lineCollision(player.x, player.y, player.size,
+        s.x, s.prevTop,
+        s.x+segmentWidth, s.top
+      ) ||
+      lineCollision(player.x, player.y, player.size,
+        s.x, s.prevBottom,
+        s.x+segmentWidth, s.bottom
+      )
+    ){
+      gameState="dead";
+    }
 
     if(s.x < -segmentWidth){
       segments.shift();
@@ -203,4 +203,3 @@ update();
 </script>
 </body>
 </html>
-
