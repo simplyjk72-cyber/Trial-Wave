@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>INSANE DEMON WAVE</title>
+<title>Wave - Easy to Insane</title>
 <style>
 body { margin:0; overflow:hidden; background:black; }
 canvas { display:block; }
@@ -26,25 +26,25 @@ let score = 0;
 let highScore = localStorage.getItem("waveHighScore") || 0;
 let lastScoreTime = Date.now();
 
-let baseSpeed = 12;
+let baseSpeed = 8;            // fast but controllable
 let speedMultiplier = 1;
 
 let player = {
   x: 200,
   y: canvas.height/2,
   size: 14,
-  hitbox: 9
+  hitbox: 8
 };
 
 let holding = false;
 
 let segments = [];
-let segmentWidth = 70;
-let gapSize = 110;
+let segmentWidth = 80;
+let gapSize = 160;            // easy start
 let spawnX = canvas.width;
 let lastCenterY = canvas.height/2;
 
-// ---- Line Collision ----
+// -------- LINE COLLISION --------
 function lineCollision(px, py, size, x1, y1, x2, y2){
   let cx = px + size/2;
   let cy = py + size/2;
@@ -66,14 +66,14 @@ function lineCollision(px, py, size, x1, y1, x2, y2){
   return distance < player.hitbox/2;
 }
 
-// ---- Spawn Connected Slopes ----
+// -------- SPAWN CONNECTED SLOPES --------
 function spawnSegment(){
 
-  let shift = (Math.random()*180 - 90);
+  let shift = (Math.random()*140 - 70);
   let centerY = lastCenterY + shift;
 
-  // keep playable but still hard
-  centerY = Math.max(80, Math.min(canvas.height-80, centerY));
+  // Keep inside visible borders
+  centerY = Math.max(120, Math.min(canvas.height-120, centerY));
 
   let top = centerY - gapSize/2;
   let bottom = centerY + gapSize/2;
@@ -90,9 +90,9 @@ function spawnSegment(){
   spawnX += segmentWidth;
 }
 
-for(let i=0;i<30;i++) spawnSegment();
+for(let i=0;i<25;i++) spawnSegment();
 
-// ---- Input ----
+// -------- INPUT --------
 function startHold(){ if(gameState==="playing") holding=true; }
 function stopHold(){ holding=false; }
 
@@ -106,7 +106,7 @@ document.addEventListener("keyup", e=>{
 document.addEventListener("mousedown", e=>{ if(e.button===0) startHold(); });
 document.addEventListener("mouseup", e=>{ if(e.button===0) stopHold(); });
 
-// ---- Update Loop ----
+// -------- UPDATE LOOP --------
 function update(){
 
   ctx.fillStyle="black";
@@ -115,22 +115,25 @@ function update(){
   if(gameState==="dead"){
     ctx.fillStyle="white";
     ctx.font="40px Arial";
-    ctx.fillText("INSANE DEMON - PRESS R", canvas.width/2-200, canvas.height/2);
+    ctx.fillText("INSANE - PRESS R", canvas.width/2-170, canvas.height/2);
     requestAnimationFrame(update);
     return;
   }
 
-  // score
+  // ---- Score & Scaling ----
   let now = Date.now();
   if(now-lastScoreTime >= 500){
     score++;
     lastScoreTime = now;
 
-    if(score % 10 === 0 && gapSize > 70){
-      gapSize -= 4;
+    // tighten gap gradually → insane
+    if(score % 8 === 0 && gapSize > 70){
+      gapSize -= 6;
     }
-    if(score % 15 === 0){
-      speedMultiplier += 0.1;
+
+    // increase speed
+    if(score % 12 === 0){
+      speedMultiplier += 0.12;
     }
   }
 
@@ -140,38 +143,43 @@ function update(){
   }
 
   let speed = baseSpeed * speedMultiplier;
-  let waveSpeed = 7 * speedMultiplier;
+  let waveSpeed = 6.5 * speedMultiplier;
 
   if(holding) player.y -= waveSpeed;
   else player.y += waveSpeed;
 
-  // ---- Invisible vertical death bounds ----
-  if(player.y < 0 || player.y + player.size > canvas.height){
+  // ---- VISIBLE BORDERS ----
+  ctx.fillStyle = "red";
+  ctx.fillRect(0,0,canvas.width,6); // top border
+  ctx.fillRect(0,canvas.height-6,canvas.width,6); // bottom border
+
+  // Border collision
+  if(player.y < 6 || player.y + player.size > canvas.height-6){
     gameState = "dead";
   }
 
+  // Player
   ctx.fillStyle="cyan";
   ctx.fillRect(player.x, player.y, player.size, player.size);
 
+  // Slopes
   for(let s of segments){
 
     s.x -= speed;
 
-    // Draw top slope
     ctx.strokeStyle="orange";
     ctx.lineWidth=4;
+
     ctx.beginPath();
     ctx.moveTo(s.x, s.prevTop);
     ctx.lineTo(s.x + segmentWidth, s.top);
     ctx.stroke();
 
-    // Draw bottom slope
     ctx.beginPath();
     ctx.moveTo(s.x, s.prevBottom);
     ctx.lineTo(s.x + segmentWidth, s.bottom);
     ctx.stroke();
 
-    // Collision
     if(
       lineCollision(player.x, player.y, player.size,
         s.x, s.prevTop,
